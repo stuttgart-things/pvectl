@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: pvectl
+    main: .
+    binary: pvectl
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+      - -extldflags=-static
+      - -X github.com/stuttgart-things/pvectl/cmd.version={{.Tag}}
+      - -X github.com/stuttgart-things/pvectl/cmd.commit={{.Commit}}
+      - -X github.com/stuttgart-things/pvectl/cmd.buildDate={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# semantic-release writes the release notes and creates the GitHub release;
+# GoReleaser only adds the binaries to it.
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: stuttgart-things
+    name: pvectl
+  draft: false
+  prerelease: auto
+  mode: keep-existing
