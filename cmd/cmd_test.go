@@ -21,6 +21,7 @@ func fakeLab(t *testing.T) *pvetest.Server {
 	s.Data("GET /cluster/resources", []map[string]any{
 		{"vmid": 280, "name": "ubuntu26-base-20261116-0842", "node": "ul-pve01", "type": "qemu", "status": "stopped", "template": 1},
 		{"vmid": 279, "name": "rocky10-base-20261115-2011", "node": "ul-pve11", "type": "qemu", "status": "stopped", "template": 1},
+		{"vmid": 266, "name": "ubuntu26-base-20261002-0758", "node": "ul-pve11", "type": "qemu", "status": "stopped", "template": 1},
 		{"vmid": 227, "name": "platform-sthings-1", "node": "ul-pve10", "type": "qemu", "status": "running", "template": 0, "uptime": 7260},
 	})
 	s.Data("GET /nodes/ul-pve01/qemu/280/config", map[string]any{
@@ -28,6 +29,9 @@ func fakeLab(t *testing.T) *pvetest.Server {
 		"virtio0": "DD-sthings:base-280-disk-0,size=32G", "ide2": "DD-sthings:vm-280-cloudinit,media=cdrom",
 		"description": secretNotes,
 	})
+	s.Data("GET /nodes/ul-pve11/qemu/266/config", map[string]any{
+		"name": "ubuntu26-base-20261002-0758", "template": 1, "cpu": "host", "agent": "1",
+		"virtio0": "DD-sthings:base-266-disk-0", "description": "user: hunter2"})
 	s.Data("GET /nodes/ul-pve11/qemu/279/config", map[string]any{
 		"name": "rocky10-base-20261115-2011", "template": 1, "cpu": "x86-64-v2-AES", "agent": "1",
 		"scsi0": "DD-sthings:base-279-disk-0,size=32G", "ide2": "DD-sthings:vm-279-cloudinit,media=cdrom",
@@ -253,5 +257,33 @@ func TestUnknownFlagIsUsage(t *testing.T) {
 	_, _, code := run(t, "vms", "--nope")
 	if code != ExitUsage {
 		t.Fatalf("exit %d", code)
+	}
+}
+
+func TestPromoteOlderNeedsAllowOld(t *testing.T) {
+	s := fakeLab(t)
+	out, _, code := run(t, "template", "promote", "266", "--fs9100-copy", "--yes", "-o", "json")
+	if code != ExitCheckFailed {
+		t.Fatalf("exit %d %s", code, out)
+	}
+	m := decode(t, out)
+	if ws := m["plan"].(map[string]any)["warnings"].([]any); len(ws) != 1 || !strings.Contains(m["error"].(string), "--allow-old") {
+		t.Fatalf("%v", m)
+	}
+	if w := s.Writes(); len(w) != 0 {
+		t.Fatalf("wrote: %+v", w)
+	}
+	// the dry-run shows the warning and exits 0
+	out, _, code = run(t, "template", "promote", "266", "--fs9100-copy", "--dry-run", "-o", "json")
+	if code != ExitOK || !strings.Contains(out, "is not the newest") || strings.Contains(out, "hunter2") {
+		t.Fatalf("dry-run exit %d %s", code, out)
+	}
+}
+
+func TestVMsFindsTemplateByVMID(t *testing.T) {
+	fakeLab(t)
+	out, _, code := run(t, "vms", "280", "-o", "json")
+	if code != ExitOK || !strings.Contains(out, "ubuntu26-base-20261116-0842") {
+		t.Fatalf("exit %d %s", code, out)
 	}
 }

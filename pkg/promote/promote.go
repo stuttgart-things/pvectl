@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,6 +48,9 @@ type Options struct {
 	CopySuffix    string `json:"copy_suffix,omitempty"`
 	OS            string `json:"os,omitempty"` // repin key; "" = from the template name
 	SkipChecks    bool   `json:"skip_checks,omitempty"`
+	// Pins are the places in stuttgart-things that clone from the source
+	// (repin.FindPins). Set by the caller when it has a checkout.
+	Pins []repin.Pin `json:"-"`
 }
 
 func (o *Options) defaults() {
@@ -100,7 +105,14 @@ type Plan struct {
 	Steps   []Step         `json:"steps"`
 	Repins  []repin.Change `json:"repins"`
 	Notes   []string       `json:"notes,omitempty"`
+	// Warnings: reasons why this source is probably the wrong one (an
+	// older template, or one that is still pinned and would be moved). A
+	// run with pending steps needs an explicit OK (NeedsAck).
+	Warnings []string `json:"warnings,omitempty"`
 }
+
+// NeedsAck reports whether the plan would write despite warnings.
+func (p *Plan) NeedsAck() bool { return len(p.Warnings) > 0 && p.Pending() }
 
 // Pending reports whether any step still has work to do.
 func (p *Plan) Pending() bool {
@@ -221,11 +233,54 @@ func Build(ctx context.Context, api API, o Options) (*Plan, error) {
 	}
 
 	p.Repins = repin.ForPromote(p.Options.OS, src.VMID, copyID)
+	p.Warnings = warnings(rs, src, p, o)
 
 	if !o.SkipChecks && !pve.ChecksOK(p.Checks) {
 		return p, fmt.Errorf("VMID %d (%s): %w", src.VMID, src.Name, ErrChecks)
 	}
 	return p, nil
+}
+
+// stamp is the build time in a Packer template name: <os>-base-YYYYMMDD-HHMM.
+var stamp = regexp.MustCompile(`-(\d{8}-\d{4})$`)
+
+// warnings flags a source that is probably not the one to promote:
+// a newer template of the same OS exists, or the source is still pinned
+// (claims/XRs clone from it) and the plan would migrate it.
+func warnings(rs []pve.Resource, src pve.Resource, p *Plan, o Options) []string {
+	var out []string
+	if m := stamp.FindStringSubmatch(src.Name); m != nil && !strings.HasSuffix(src.Name, o.CopySuffix) {
+		prefix := strings.TrimSuffix(src.Name, m[0])
+		var newer []string
+		for _, r := range rs {
+			if !bool(r.Template) || r.VMID == src.VMID || strings.HasSuffix(r.Name, o.CopySuffix) {
+				continue
+			}
+			rm := stamp.FindStringSubmatch(r.Name)
+			if rm == nil || strings.TrimSuffix(r.Name, rm[0]) != prefix || rm[1] <= m[1] {
+				continue
+			}
+			newer = append(newer, fmt.Sprintf("%d %s", r.VMID, r.Name))
+		}
+		if len(newer) > 0 {
+			sort.Strings(newer)
+			out = append(out, fmt.Sprintf("%d is not the newest %s template: %s is newer", src.VMID, prefix, strings.Join(newer, ", ")))
+		}
+	}
+	migrates := false
+	for _, s := range p.Steps {
+		if s.ID == "migrate" && s.State == StatePlanned {
+			migrates = true
+		}
+	}
+	if migrates && len(o.Pins) > 0 {
+		var where []string
+		for _, pin := range o.Pins {
+			where = append(where, pin.String())
+		}
+		out = append(out, fmt.Sprintf("%d is still pinned in stuttgart-things (%s); migrating it changes the clone source node for those", src.VMID, strings.Join(where, ", ")))
+	}
+	return out
 }
 
 const copyDescription = "Copy of template %d (%s) with its disk on %s, so Telmate clones (create-terraform-vm) can allocate (DD-sthings: 403). Made by pvectl template promote."

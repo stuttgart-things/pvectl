@@ -71,3 +71,29 @@ spec:
 		t.Fatalf("%+v", cs)
 	}
 }
+
+func TestFindPins(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, ValuesFile, "environments:\n  labul:\n    templateVmId: \"266\"\n")
+	write(t, root, "clusters/xrs/sbx.yaml", "spec:\n  vm:\n    templateVmId: \"266\"\n    # templateVmId: \"266\" (old)\n")
+	write(t, root, "clusters/runs/vm.yml", "values:\n    vm_clone_id: 266\n    other: 266\n")
+	write(t, root, "clusters/xrs/other.yaml", "templateVmId: \"2660\"\n")
+	write(t, root, ".claude/worktrees/x/sbx.yaml", "templateVmId: \"266\"\n")
+	pins, err := FindPins(root, 266)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, p := range pins {
+		got[p.String()] = true
+	}
+	want := []string{"clusters/runs/vm.yml:2 (vm_clone_id)", "clusters/xrs/sbx.yaml:3 (templateVmId)"}
+	if len(pins) != len(want) {
+		t.Fatalf("pins %v", pins)
+	}
+	for _, w := range want {
+		if !got[w] {
+			t.Errorf("missing %s in %v", w, pins)
+		}
+	}
+}

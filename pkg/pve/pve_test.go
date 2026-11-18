@@ -68,9 +68,9 @@ func TestCheckConfig(t *testing.T) {
 		"agent":            {"cpu": "host", "agent": "0", "ide2": "local:vm-1-cloudinit,media=cdrom"},
 		"cloud-init drive": {"cpu": "host,flags=+aes", "agent": "enabled=1,fstrim_cloned_disks=1", "ide2": "none,media=cdrom"},
 	}
-	// a template without a cloud-init drive only warns (LabUL: bpg/Telmate add it)
+	// a template without a cloud-init drive passes (LabUL: bpg/Telmate add one per clone)
 	tpl := pve.CheckConfig(pve.Sanitize(map[string]any{"template": 1, "cpu": "host", "agent": "1", "virtio0": "DD-sthings:base-280-disk-0"}))
-	if !pve.ChecksOK(tpl) || !tpl[2].Warn {
+	if !pve.ChecksOK(tpl) || !tpl[2].OK {
 		t.Errorf("template without cloud-init drive: %+v", tpl)
 	}
 	for want, raw := range cases {

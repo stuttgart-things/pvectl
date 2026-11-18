@@ -11,9 +11,11 @@ package repin
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -174,4 +176,57 @@ func appendUnique(s []string, v string) []string {
 		}
 	}
 	return append(s, v)
+}
+
+// Pin is a place in stuttgart-things that references a template VMID.
+type Pin struct {
+	File string `json:"file"`
+	Line int    `json:"line"`
+	Key  string `json:"key"`
+}
+
+func (p Pin) String() string { return fmt.Sprintf("%s:%d (%s)", p.File, p.Line, p.Key) }
+
+var pinLine = regexp.MustCompile(`^\s*-?\s*(templateVmId|vm_clone_id)\s*:\s*"?(\d+)"?\s*(#.*)?$`)
+
+// pinSkipDirs are not searched (worktrees hold copies of the repo).
+var pinSkipDirs = map[string]bool{".git": true, ".claude": true, "node_modules": true}
+
+// FindPins lists the YAML lines under root that set templateVmId or
+// vm_clone_id to vmid: claims, XRs and backstage runs that clone from it.
+// The repin targets (ValuesFile, TerraformTpl, TerraformLabU) are left
+// out: a promotion repins those on purpose.
+func FindPins(root string, vmid int) ([]Pin, error) {
+	want := strconv.Itoa(vmid)
+	skip := map[string]bool{ValuesFile: true, TerraformTpl: true, TerraformLabU: true}
+	var pins []Pin
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if pinSkipDirs[d.Name()] && path != root {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if ext := filepath.Ext(path); ext != ".yaml" && ext != ".yml" {
+			return nil
+		}
+		rel, _ := filepath.Rel(root, path)
+		if skip[filepath.ToSlash(rel)] {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for i, line := range strings.Split(string(b), "\n") {
+			if m := pinLine.FindStringSubmatch(line); m != nil && m[2] == want {
+				pins = append(pins, Pin{File: filepath.ToSlash(rel), Line: i + 1, Key: m[1]})
+			}
+		}
+		return nil
+	})
+	return pins, err
 }
