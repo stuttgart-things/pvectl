@@ -29,7 +29,7 @@ var rootCmd = &cobra.Command{
 	Use:   "pvectl",
 	Short: "LabUL Proxmox: find VMs and templates, check configs, follow tasks, migrate, promote templates",
 	Long: `pvectl covers the recurring Proxmox steps of a LabUL template round:
-check config -> copy to FS9100 -> migrate ul-pve01 -> ul-pve11 -> repin.
+check config -> migrate ul-pve01 -> ul-pve11 -> FS9100 copy -> repin.
 
 Credentials come from the environment and are never printed:
 
