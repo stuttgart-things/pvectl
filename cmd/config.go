@@ -115,21 +115,21 @@ func printConfig(r ConfigResult) {
 	if r.Template {
 		kind = "template"
 	}
-	fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", r.VMID, r.Name)), dimStyle.Render(fmt.Sprintf("(%s on %s)", kind, r.Node)))
+	_, _ = fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", r.VMID, r.Name)), dimStyle.Render(fmt.Sprintf("(%s on %s)", kind, r.Node)))
 	printSection(w, "config")
 	for _, k := range r.Config.Keys() {
-		fmt.Fprintf(w, "%s %s\n", keyStyle.Render(fmt.Sprintf("%-12s", k+":")), r.Config[k])
+		_, _ = fmt.Fprintf(w, "%s %s\n", keyStyle.Render(fmt.Sprintf("%-12s", k+":")), r.Config[k])
 	}
 	if len(r.Disks) > 0 {
 		printSection(w, "disks")
 		for _, d := range r.Disks {
-			fmt.Fprintf(w, "%-10s %-14s %s\n", d.Key, d.Storage, d.Volume)
+			_, _ = fmt.Fprintf(w, "%-10s %-14s %s\n", d.Key, d.Storage, d.Volume)
 		}
 	}
 	if r.Checks != nil {
 		printSection(w, "checks")
 		for _, ch := range r.Checks {
-			fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
+			_, _ = fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
 		}
 	}
 }

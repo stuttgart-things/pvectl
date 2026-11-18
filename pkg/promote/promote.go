@@ -170,7 +170,7 @@ func Build(ctx context.Context, api API, o Options) (*Plan, error) {
 			if err != nil {
 				return nil, err
 			}
-			if b := mc.Blocked(o.To); b != nil && !(len(mc.UnavailableStorages(o.To)) > 0 && o.TargetStorage != "") {
+			if b := mc.Blocked(o.To); b != nil && (len(mc.UnavailableStorages(o.To)) == 0 || o.TargetStorage == "") {
 				return p, fmt.Errorf("%s not allowed for %d: %v (pass --target-storage <storage on %s> if storages are missing)", o.To, src.VMID, b, o.To)
 			}
 			mr := pve.MigrateRequest{Node: src.Node, VMID: src.VMID, Target: o.To, TargetStorage: o.TargetStorage,

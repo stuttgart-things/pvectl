@@ -99,7 +99,7 @@ func reportError(err error) int {
 	var silent *cliError
 	if errors.As(err, &silent) && silent.silent {
 		if !jsonOut() {
-			fmt.Fprintln(os.Stderr, errorStyle.Render("✗ ")+err.Error())
+			_, _ = fmt.Fprintln(os.Stderr, errorStyle.Render("✗ ")+err.Error())
 		}
 		return code
 	}
@@ -116,15 +116,15 @@ func reportError(err error) int {
 	}
 	if code == ExitAborted {
 		if errors.Is(err, errDetached) {
-			fmt.Fprintln(os.Stderr, err.Error())
+			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 		} else {
-			fmt.Fprintln(os.Stderr, "Aborted.")
+			_, _ = fmt.Fprintln(os.Stderr, "Aborted.")
 		}
 		return code
 	}
-	fmt.Fprintln(os.Stderr, errorStyle.Render("Error: ")+err.Error())
+	_, _ = fmt.Fprintln(os.Stderr, errorStyle.Render("Error: ")+err.Error())
 	if code == ExitUsage {
-		fmt.Fprintln(os.Stderr, dimStyle.Render("Run 'pvectl <command> --help' for usage and examples."))
+		_, _ = fmt.Fprintln(os.Stderr, dimStyle.Render("Run 'pvectl <command> --help' for usage and examples."))
 	}
 	return code
 }

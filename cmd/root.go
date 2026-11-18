@@ -123,5 +123,5 @@ func logf(format string, a ...any) {
 	if stderrTTY() {
 		line = dimStyle.Render(line)
 	}
-	fmt.Fprintln(os.Stderr, line)
+	_, _ = fmt.Fprintln(os.Stderr, line)
 }

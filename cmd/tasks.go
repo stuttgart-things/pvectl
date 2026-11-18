@@ -71,7 +71,7 @@ final status plus the full log.`,
 				st, err = c.WaitTask(ctx, tasksFlags.follow, pve.WaitOptions{OnEvent: func(ev pve.TaskEvent) {
 					log = append(log, ev.Line)
 					if jsonOut() {
-						fmt.Fprintln(os.Stderr, ev.Line)
+						_, _ = fmt.Fprintln(os.Stderr, ev.Line)
 					} else {
 						fmt.Println(ev.Line)
 					}

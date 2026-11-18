@@ -79,9 +79,6 @@ list stays a plain table. Descriptions are never shown.`,
 			}
 		}
 		if jsonOut() {
-			if rows == nil {
-				rows = []VMRow{}
-			}
 			if err := printJSON(rows); err != nil {
 				return err
 			}
@@ -161,17 +158,17 @@ func printVMs(rows []VMRow, filter string) {
 		if r.Template {
 			status = "template"
 		}
-		fmt.Fprintf(w, "%-28s vmid=%d node=%s status=%s uptime=%s ip=%s tags=%s\n",
+		_, _ = fmt.Fprintf(w, "%-28s vmid=%d node=%s status=%s uptime=%s ip=%s tags=%s\n",
 			keyStyle.Render(r.Name), r.VMID, r.Node, status, fmtUptime(r.Uptime), ip, r.Tags)
 		for _, t := range r.Tasks {
 			st := t.Status
 			if t.Running() {
 				st = "running"
 			}
-			fmt.Fprintf(w, "    %s %-12s %s %s\n", fmtTime(t.StartTime), t.Type, t.User, st)
+			_, _ = fmt.Fprintf(w, "    %s %-12s %s %s\n", fmtTime(t.StartTime), t.Type, t.User, st)
 		}
 		if r.NumTasks > len(r.Tasks) {
-			fmt.Fprintf(w, "    (%d in the last %d days)\n", r.NumTasks, vmsFlags.days)
+			_, _ = fmt.Fprintf(w, "    (%d in the last %d days)\n", r.NumTasks, vmsFlags.days)
 		}
 	}
 }

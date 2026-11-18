@@ -40,25 +40,25 @@ func streamLine(line string) {
 	}
 	_, isProgress := pve.ParsePercent(line)
 	if !stderrTTY() {
-		fmt.Fprintln(os.Stderr, "  │ "+line)
+		_, _ = fmt.Fprintln(os.Stderr, "  │ "+line)
 		return
 	}
 	if overwriting {
-		fmt.Fprint(os.Stderr, "\r\033[K")
+		_, _ = fmt.Fprint(os.Stderr, "\r\033[K")
 	}
 	if isProgress {
-		fmt.Fprint(os.Stderr, dimStyle.Render("  │ "+line))
+		_, _ = fmt.Fprint(os.Stderr, dimStyle.Render("  │ "+line))
 		overwriting = true
 		return
 	}
-	fmt.Fprintln(os.Stderr, dimStyle.Render("  │ "+line))
+	_, _ = fmt.Fprintln(os.Stderr, dimStyle.Render("  │ "+line))
 	overwriting = false
 }
 
 // endStream finishes a pending progress line.
 func endStream() {
 	if overwriting {
-		fmt.Fprintln(os.Stderr)
+		_, _ = fmt.Fprintln(os.Stderr)
 		overwriting = false
 	}
 }
@@ -154,12 +154,12 @@ func waitTaskUI(ctx context.Context, title string, run func(context.Context, fun
 		tail = tail[len(tail)-6:]
 	}
 	for _, l := range tail {
-		fmt.Fprintln(os.Stderr, dimStyle.Render("  │ "+l))
+		_, _ = fmt.Fprintln(os.Stderr, dimStyle.Render("  │ "+l))
 	}
 	if fm.done.err == nil {
-		fmt.Fprintf(os.Stderr, "%s %s (%s)\n", mark(true), title, time.Since(fm.start).Truncate(time.Second))
+		_, _ = fmt.Fprintf(os.Stderr, "%s %s (%s)\n", mark(true), title, time.Since(fm.start).Truncate(time.Second))
 	} else {
-		fmt.Fprintf(os.Stderr, "%s %s\n", mark(false), title)
+		_, _ = fmt.Fprintf(os.Stderr, "%s %s\n", mark(false), title)
 	}
 	return fm.done.st, fm.done.err
 }

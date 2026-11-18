@@ -46,7 +46,7 @@ func New(t testing.TB) *Server {
 }
 
 // URL is the API base for pve.Options.URL.
-func (s *Server) APIURL() string { return s.Server.URL + "/api2/json" }
+func (s *Server) APIURL() string { return s.URL + "/api2/json" }
 
 // Data registers a fixed answer for "METHOD /path".
 func (s *Server) Data(route string, data any) {

@@ -183,10 +183,10 @@ func emitPromote(res PromoteResult) {
 }
 
 func printPlan(w io.Writer, p *promote.Plan, final bool) {
-	fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", p.Source.VMID, p.Source.Name)), dimStyle.Render("on "+p.Source.Node))
+	_, _ = fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", p.Source.VMID, p.Source.Name)), dimStyle.Render("on "+p.Source.Node))
 	printSection(w, "checks")
 	for _, ch := range p.Checks {
-		fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
+		_, _ = fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
 	}
 	if len(p.Steps) > 0 {
 		title := "plan"
@@ -206,22 +206,22 @@ func printPlan(w io.Writer, p *promote.Plan, final bool) {
 			default:
 				state = warnStyle.Render(state)
 			}
-			fmt.Fprintf(w, "%-8s %s\n", state, s.Title)
+			_, _ = fmt.Fprintf(w, "%-8s %s\n", state, s.Title)
 			if s.Reason != "" {
-				fmt.Fprintf(w, "         %s\n", dimStyle.Render(s.Reason))
+				_, _ = fmt.Fprintf(w, "         %s\n", dimStyle.Render(s.Reason))
 			}
 			if s.State == promote.StatePlanned {
 				for _, call := range s.Calls {
-					fmt.Fprintf(w, "         %s\n", dimStyle.Render(call.String()))
+					_, _ = fmt.Fprintf(w, "         %s\n", dimStyle.Render(call.String()))
 				}
 			}
 		}
 	}
 	if p.Copy != nil {
-		fmt.Fprintf(w, "\n%s %d %s on %s\n", keyStyle.Render("copy:"), p.Copy.VMID, p.Copy.Name, p.Copy.Node)
+		_, _ = fmt.Fprintf(w, "\n%s %d %s on %s\n", keyStyle.Render("copy:"), p.Copy.VMID, p.Copy.Name, p.Copy.Node)
 	}
 	for _, n := range p.Notes {
-		fmt.Fprintf(w, "%s %s\n", dimStyle.Render("note:"), n)
+		_, _ = fmt.Fprintf(w, "%s %s\n", dimStyle.Render("note:"), n)
 	}
 }
 
@@ -231,7 +231,7 @@ func printRepins(w io.Writer, p *promote.Plan) {
 	}
 	printSection(w, "repins (stuttgart-things, by PR)")
 	printChanges(w, p.Repins)
-	fmt.Fprintln(w, dimStyle.Render("then: "+strings.Join(repin.FollowUps, "; ")))
+	_, _ = fmt.Fprintln(w, dimStyle.Render("then: "+strings.Join(repin.FollowUps, "; ")))
 }
 
 func printChanges(w io.Writer, cs []repin.Change) {
@@ -244,9 +244,9 @@ func printChanges(w io.Writer, cs []repin.Change) {
 		default:
 			cur = dimStyle.Render(" (now " + c.Current + ")")
 		}
-		fmt.Fprintf(w, "%s\n  %s = %s%s\n", keyStyle.Render(c.File), c.Path, okStyle.Render(strconv.Quote(c.Value)), cur)
+		_, _ = fmt.Fprintf(w, "%s\n  %s = %s%s\n", keyStyle.Render(c.File), c.Path, okStyle.Render(strconv.Quote(c.Value)), cur)
 		if c.Note != "" {
-			fmt.Fprintf(w, "  %s\n", dimStyle.Render(c.Note))
+			_, _ = fmt.Fprintf(w, "  %s\n", dimStyle.Render(c.Note))
 		}
 	}
 }
@@ -264,9 +264,9 @@ func (p *promoteProgress) TaskEvent(s promote.Step, ev pve.TaskEvent) { streamLi
 func (p *promoteProgress) StepDone(s promote.Step) {
 	endStream()
 	if s.State == promote.StateDone {
-		fmt.Fprintf(os.Stderr, "%s %s\n", mark(true), s.Title)
+		_, _ = fmt.Fprintf(os.Stderr, "%s %s\n", mark(true), s.Title)
 	} else {
-		fmt.Fprintf(os.Stderr, "%s %s\n", mark(false), s.Title)
+		_, _ = fmt.Fprintf(os.Stderr, "%s %s\n", mark(false), s.Title)
 	}
 }
 

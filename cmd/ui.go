@@ -24,8 +24,8 @@ var (
 
 // printSection prints a section header after one blank line.
 func printSection(w io.Writer, title string) {
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, sectionStyle.Render("━━━ "+title+" ━━━"))
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, sectionStyle.Render("━━━ "+title+" ━━━"))
 }
 
 func checkMark(c pve.Check) string {
@@ -69,7 +69,7 @@ func table(w io.Writer, header []string, rows [][]string) {
 		if style != nil {
 			s = style.Render(s)
 		}
-		fmt.Fprintln(w, s)
+		_, _ = fmt.Fprintln(w, s)
 	}
 	line(header, &keyStyle)
 	for _, r := range rows {

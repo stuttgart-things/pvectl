@@ -112,27 +112,27 @@ the last tasks, and the log of the last start/stop/migrate task.`,
 		}
 		w := os.Stdout
 		if res.Resource != nil {
-			fmt.Fprintf(w, "%s %s state=%s group=%s max_restart=%d max_relocate=%d\n", keyStyle.Render("HA resource:"), sid,
+			_, _ = fmt.Fprintf(w, "%s %s state=%s group=%s max_restart=%d max_relocate=%d\n", keyStyle.Render("HA resource:"), sid,
 				res.Resource.State, res.Resource.Group, res.Resource.MaxRestart, res.Resource.MaxRelocate)
 		} else {
-			fmt.Fprintf(w, "%s none\n", keyStyle.Render("HA resource:"))
+			_, _ = fmt.Fprintf(w, "%s none\n", keyStyle.Render("HA resource:"))
 		}
 		for _, s := range res.HA {
-			fmt.Fprintf(w, "%s type=%s sid=%s node=%s state=%s request_state=%s status=%s\n", keyStyle.Render("HA status:  "),
+			_, _ = fmt.Fprintf(w, "%s type=%s sid=%s node=%s state=%s request_state=%s status=%s\n", keyStyle.Render("HA status:  "),
 				s.Type, s.SID, s.Node, s.State, s.RequestState, s.Status)
 		}
-		fmt.Fprintf(w, "%s %s\n", keyStyle.Render("VM status:  "), res.Status)
+		_, _ = fmt.Fprintf(w, "%s %s\n", keyStyle.Render("VM status:  "), res.Status)
 		for _, t := range res.Tasks {
 			st := t.Status
 			if t.Running() {
 				st = "running"
 			}
-			fmt.Fprintf(w, "    %s %-12s %s %s\n", fmtTime(t.StartTime), t.Type, t.User, st)
+			_, _ = fmt.Fprintf(w, "    %s %-12s %s %s\n", fmtTime(t.StartTime), t.Type, t.User, st)
 		}
 		if res.LastLog != nil {
-			fmt.Fprintf(w, "log of the last %s:\n", res.LastLog.Task.Type)
+			_, _ = fmt.Fprintf(w, "log of the last %s:\n", res.LastLog.Task.Type)
 			for _, l := range res.LastLog.Log {
-				fmt.Fprintln(w, "    "+l)
+				_, _ = fmt.Fprintln(w, "    "+l)
 			}
 		}
 		return nil

@@ -194,12 +194,12 @@ func reportMigrate(res MigrateResult) error {
 	w := os.Stdout
 	switch res.State {
 	case "skipped":
-		fmt.Fprintf(w, "%s %s\n", okStyle.Render("nothing to do:"), res.Reason)
+		_, _ = fmt.Fprintf(w, "%s %s\n", okStyle.Render("nothing to do:"), res.Reason)
 	case "planned":
-		fmt.Fprintf(w, "%s migrate %d %s %s -> %s\n", warnStyle.Render("dry-run:"), res.VMID, res.Name, res.From, res.Target)
-		fmt.Fprintf(w, "  local disks: %s\n  %s\n", orNone(res.LocalDisks), res.Request.String())
+		_, _ = fmt.Fprintf(w, "%s migrate %d %s %s -> %s\n", warnStyle.Render("dry-run:"), res.VMID, res.Name, res.From, res.Target)
+		_, _ = fmt.Fprintf(w, "  local disks: %s\n  %s\n", orNone(res.LocalDisks), res.Request.String())
 	case "done":
-		fmt.Fprintf(w, "%s %d %s now on %s (status %s)\n", mark(true), res.VMID, res.Name, res.After["node"], res.After["status"])
+		_, _ = fmt.Fprintf(w, "%s %d %s now on %s (status %s)\n", mark(true), res.VMID, res.Name, res.After["node"], res.After["status"])
 	}
 	return nil
 }
