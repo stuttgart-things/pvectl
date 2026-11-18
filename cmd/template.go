@@ -41,7 +41,7 @@ var promoteFlags struct {
 
 var promoteCmd = &cobra.Command{
 	Use:   "promote [vmid]",
-	Short: "Check a template, copy it to FS9100 for Terraform, migrate it to ul-pve11, print the repins",
+	Short: "Check a template, migrate it to ul-pve11, copy it to FS9100 for Terraform, print the repins",
 	Long: `Promote a template after a Packer build (on ul-pve01):
 
   1. checks      cpu: host, guest agent, cloud-init drive (exit 4 on failure;
