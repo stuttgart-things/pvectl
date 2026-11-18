@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/stuttgart-things/pvectl/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* **ui:** charm look with logo, start menu, cards and tables ([#12](https://github.com/stuttgart-things/pvectl/issues/12)) ([6291fd8](https://github.com/stuttgart-things/pvectl/commit/6291fd897f7ef9454ffe4e3e0b91cc1c938db4e5))
+
 # [0.2.0](https://github.com/stuttgart-things/pvectl/compare/v0.1.1...v0.2.0) (2026-11-18)
 
 
