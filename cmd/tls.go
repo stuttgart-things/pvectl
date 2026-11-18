@@ -164,9 +164,10 @@ func certCard(sc pve.ServerCert, knownHosts string) string {
 		return strings.Join(lines, "\n")
 	}
 	style := cardStyle
-	if sc.Trust == "changed" {
+	switch sc.Trust {
+	case "changed":
 		style = style.BorderForeground(colRed)
-	} else if sc.Trust == "untrusted" {
+	case "untrusted":
 		style = warnBoxStyle
 	}
 	return card(style, strings.Join(lines, "\n"))
