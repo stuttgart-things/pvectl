@@ -1,3 +1,10 @@
+## [0.1.1](https://github.com/stuttgart-things/pvectl/compare/v0.1.0...v0.1.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* help text shows the promote order (migrate, then FS9100 copy) ([#10](https://github.com/stuttgart-things/pvectl/issues/10)) ([1e57d65](https://github.com/stuttgart-things/pvectl/commit/1e57d651195c6d39151783039a7b7b4a78648fee))
+
 # [0.1.0](https://github.com/stuttgart-things/pvectl/compare/v0.0.0...v0.1.0) (2026-11-18)
 
 
