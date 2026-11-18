@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/stuttgart-things/pvectl/internal/buildinfo"
@@ -24,6 +25,21 @@ var versionCmd = &cobra.Command{
 		info := buildinfo.Current(version, commit, buildDate)
 		if jsonOut() {
 			return printJSON(map[string]string{"version": info.Version, "commit": info.Commit, "date": info.Date})
+		}
+		if fancy() {
+			var meta []string
+			if info.Commit != "" {
+				meta = append(meta, "commit "+info.Commit)
+			}
+			if info.Date != "" {
+				meta = append(meta, "built "+info.Date)
+			}
+			out := banner(info.Version)
+			if len(meta) > 0 {
+				out += "\n  " + dimStyle.Render(strings.Join(meta, " · "))
+			}
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), out)
+			return err
 		}
 		_, err := fmt.Fprintln(cmd.OutOrStdout(), "pvectl "+info.String())
 		return err

@@ -54,6 +54,16 @@ Exit codes: 0 ok, 1 error, 2 usage, 3 not found, 4 check failed,
 VM descriptions (notes) are never printed: in LabUL they hold passwords.`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
+	// pvectl alone: the start menu on a terminal, the help otherwise
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			return usageErr("unknown command %q for \"pvectl\"", args[0])
+		}
+		if !interactive() {
+			return cmd.Help()
+		}
+		return runMenu(cmd)
+	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		switch opts.output {
 		case "text", "json":

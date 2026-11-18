@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/stuttgart-things/pvectl/pkg/promote"
 	"github.com/stuttgart-things/pvectl/pkg/pve"
@@ -107,7 +108,7 @@ func runPromote(cmd *cobra.Command, args []string) error {
 		if !flags.Changed("fs9100-copy") && !flags.Changed("no-fs9100-copy") {
 			ok := true
 			q := huh.NewConfirm().Title("Full copy on shared storage for Telmate Terraform (vm_clone_id)?").Value(&ok)
-			if err := huh.NewForm(huh.NewGroup(q)).RunWithContext(ctx); err != nil {
+			if err := runForm(ctx, q); err != nil {
 				return err
 			}
 			f.copy = ok
@@ -210,7 +211,7 @@ func ackWarnings(ctx context.Context, plan *promote.Plan, res *PromoteResult) er
 		Title(fmt.Sprintf("%d has warnings. Promote it anyway?", plan.Source.VMID)).
 		Description(strings.Join(plan.Warnings, "\n")).
 		Affirmative("Yes, promote it").Negative("No").Value(&ok)
-	if err := huh.NewForm(huh.NewGroup(q)).RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, q); err != nil {
 		return err
 	}
 	if !ok {
@@ -229,6 +230,10 @@ func emitPromote(res PromoteResult) {
 }
 
 func printPlan(w io.Writer, p *promote.Plan, final bool) {
+	if fancy() {
+		printPlanFancy(w, p, final)
+		return
+	}
 	_, _ = fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", p.Source.VMID, p.Source.Name)), dimStyle.Render("on "+p.Source.Node))
 	printSection(w, "checks")
 	for _, ch := range p.Checks {
@@ -282,6 +287,13 @@ func printPlan(w io.Writer, p *promote.Plan, final bool) {
 
 func printRepins(w io.Writer, p *promote.Plan) {
 	if p == nil || len(p.Repins) == 0 {
+		return
+	}
+	if fancy() {
+		var b strings.Builder
+		printChanges(&b, p.Repins)
+		foot := dimStyle.Render("then  ") + strings.Join(repin.FollowUps, dimStyle.Render(" → "))
+		_, _ = fmt.Fprintln(w, card(cardStyle, heading("repins")+" "+dimStyle.Render("stuttgart-things, by PR")+"\n\n"+strings.TrimRight(b.String(), "\n")+"\n\n"+foot))
 		return
 	}
 	printSection(w, "repins (stuttgart-things, by PR)")
@@ -397,4 +409,82 @@ func init() {
 	rf.IntVar(&repinFlags.copyID, "copy", 0, "VMID of the FS9100 copy (vm_clone_id)")
 	rf.StringVar(&repinFlags.repo, "repo", "", "stuttgart-things checkout to read the current values from")
 	rootCmd.AddCommand(repinCmd)
+}
+
+// stepIcon is the state of a plan step as a colored icon and word.
+func stepIcon(state string) string {
+	switch state {
+	case promote.StateDone:
+		return okStyle.Render("✓ done   ")
+	case promote.StateFailed:
+		return errorStyle.Render("✗ failed ")
+	case promote.StateSkipped:
+		return dimStyle.Render("↷ skipped")
+	default:
+		return lipgloss.NewStyle().Foreground(colPink).Bold(true).Render("● " + fmt.Sprintf("%-7s", state))
+	}
+}
+
+// printPlanFancy shows the plan as cards: checks, warnings, the steps as a
+// timeline, the copy.
+func printPlanFancy(w io.Writer, p *promote.Plan, final bool) {
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, guestTitle(p.Source.VMID, p.Source.Name, p.Source.Node, true))
+
+	var checks []string
+	for _, ch := range p.Checks {
+		checks = append(checks, fmt.Sprintf("%s %s  %s", checkMark(ch), textStyle.Bold(true).Render(fmt.Sprintf("%-17s", ch.Name)), dimStyle.Render(ch.Detail)))
+	}
+	if len(checks) > 0 {
+		_, _ = fmt.Fprintln(w, card(cardStyle, heading("checks")+"\n\n"+strings.Join(checks, "\n")))
+	}
+
+	if len(p.Warnings) > 0 {
+		var ws []string
+		for _, msg := range p.Warnings {
+			ws = append(ws, warnStyle.Render("▲ ")+msg)
+		}
+		if p.Pending() && !final {
+			ws = append(ws, "", dimStyle.Render("a real run asks again (interactive) or needs --allow-old"))
+		}
+		_, _ = fmt.Fprintln(w, card(warnBoxStyle, pill("WARNINGS", colAmber)+"\n\n"+strings.Join(ws, "\n")))
+	}
+
+	if len(p.Steps) > 0 {
+		title := "plan"
+		if final {
+			title = "steps"
+		}
+		var lines []string
+		for i, s := range p.Steps {
+			lines = append(lines, stepIcon(s.State)+"  "+textStyle.Bold(true).Render(s.Title))
+			bar := dimStyle.Render("│")
+			if i == len(p.Steps)-1 {
+				bar = " "
+			}
+			if s.Reason != "" {
+				lines = append(lines, bar+"           "+dimStyle.Render(s.Reason))
+			}
+			if s.State == promote.StatePlanned {
+				wrap := keyStyle.Width(max(termWidth()-24, 40))
+				for _, call := range s.Calls {
+					for _, l := range strings.Split(wrap.Render(call.String()), "\n") {
+						lines = append(lines, bar+"           "+l)
+					}
+				}
+			}
+		}
+		_, _ = fmt.Fprintln(w, card(cardStyle, heading(title)+"\n\n"+strings.Join(lines, "\n")))
+	}
+
+	var foot []string
+	if p.Copy != nil {
+		foot = append(foot, pill("COPY", colMint)+" "+titleStyle.Render(fmt.Sprint(p.Copy.VMID))+" "+textStyle.Bold(true).Render(p.Copy.Name)+" "+dimStyle.Render("@ "+p.Copy.Node))
+	}
+	for _, n := range p.Notes {
+		foot = append(foot, dimStyle.Render("note: ")+n)
+	}
+	if len(foot) > 0 {
+		_, _ = fmt.Fprintln(w, lipgloss.NewStyle().MarginLeft(1).Render(strings.Join(foot, "\n")))
+	}
 }

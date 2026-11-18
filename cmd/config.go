@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/stuttgart-things/pvectl/pkg/pve"
 )
@@ -111,11 +113,11 @@ func resolveGuest(ctx context.Context, c *pve.Client, args []string, flagID int,
 
 func printConfig(r ConfigResult) {
 	w := os.Stdout
-	kind := "VM"
-	if r.Template {
-		kind = "template"
+	if fancy() {
+		_, _ = fmt.Fprintln(w, configCard(r))
+		return
 	}
-	_, _ = fmt.Fprintf(w, "%s %s\n", titleStyle.Render(fmt.Sprintf("%d %s", r.VMID, r.Name)), dimStyle.Render(fmt.Sprintf("(%s on %s)", kind, r.Node)))
+	_, _ = fmt.Fprintln(w, guestTitle(r.VMID, r.Name, r.Node, r.Template))
 	printSection(w, "config")
 	for _, k := range r.Config.Keys() {
 		_, _ = fmt.Fprintf(w, "%s %s\n", keyStyle.Render(fmt.Sprintf("%-12s", k+":")), r.Config[k])
@@ -132,6 +134,46 @@ func printConfig(r ConfigResult) {
 			_, _ = fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
 		}
 	}
+}
+
+// configCard renders config, disks and checks side by side where the
+// terminal is wide enough, else stacked. r.Config never holds the
+// description (see pve.SafeConfig).
+func configCard(r ConfigResult) string {
+	var cfg []string
+	for _, k := range r.Config.Keys() {
+		cfg = append(cfg, keyStyle.Render(fmt.Sprintf("%-12s", k))+" "+r.Config[k])
+	}
+	leftContent := heading("config") + "\n\n" + strings.Join(cfg, "\n")
+	left := cardStyle.Render(leftContent)
+
+	var right, rightContent []string
+	if r.Checks != nil {
+		var lines []string
+		for _, ch := range r.Checks {
+			lines = append(lines, fmt.Sprintf("%s %s  %s", checkMark(ch), textStyle.Bold(true).Render(fmt.Sprintf("%-17s", ch.Name)), dimStyle.Render(ch.Detail)))
+		}
+		rightContent = append(rightContent, heading("checks")+"\n\n"+strings.Join(lines, "\n"))
+		right = append(right, cardStyle.Render(rightContent[len(rightContent)-1]))
+	}
+	if len(r.Disks) > 0 {
+		var lines []string
+		for _, d := range r.Disks {
+			lines = append(lines, fmt.Sprintf("%s %s %s", keyStyle.Render(fmt.Sprintf("%-8s", d.Key)), lipgloss.NewStyle().Foreground(colPink).Render(fmt.Sprintf("%-14s", d.Storage)), dimStyle.Render(d.Volume)))
+		}
+		rightContent = append(rightContent, heading("disks")+"\n\n"+strings.Join(lines, "\n"))
+		right = append(right, cardStyle.Render(rightContent[len(rightContent)-1]))
+	}
+	body := left
+	if len(right) > 0 {
+		col := lipgloss.JoinVertical(lipgloss.Left, right...)
+		if lipgloss.Width(left)+lipgloss.Width(col)+1 <= termWidth() {
+			body = lipgloss.JoinHorizontal(lipgloss.Top, left, " ", col)
+		} else {
+			body = cards(cardStyle, append([]string{leftContent}, rightContent...)...)
+		}
+	}
+	return "\n" + guestTitle(r.VMID, r.Name, r.Node, r.Template) + "\n" + body
 }
 
 func init() {
