@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/stuttgart-things/pvectl/pkg/pve"
 	"github.com/stuttgart-things/pvectl/pkg/pve/pvetest"
 )
 
@@ -48,6 +50,7 @@ func fakeLab(t *testing.T) *pvetest.Server {
 	t.Setenv("PVE_API_URL", s.APIURL())
 	t.Setenv("PVE_API_USER", "test@pve")
 	t.Setenv("PVE_API_PASSWORD", s.Password)
+	t.Setenv("PVE_KNOWN_HOSTS", filepath.Join(t.TempDir(), "known_hosts"))
 	return s
 }
 
@@ -325,5 +328,29 @@ func TestRootWithoutTTYPrintsHelp(t *testing.T) {
 	}
 	if _, _, code := run(t, "nosuchcommand"); code != ExitUsage {
 		t.Fatalf("unknown command: exit %d, want %d", code, ExitUsage)
+	}
+}
+
+func TestTLSTrust(t *testing.T) {
+	s := fakeLab(t)
+	fp := pve.Fingerprint(s.Certificate())
+
+	out, _, code := run(t, "tls", "-o", "json")
+	if code != ExitOK || decode(t, out)["trust"] != "untrusted" || decode(t, out)["fingerprint"] != fp {
+		t.Fatalf("tls: exit %d\n%s", code, out)
+	}
+	if _, _, code := run(t, "tls", "trust"); code != ExitUsage {
+		t.Fatalf("trust without --fingerprint/--yes: exit %d, want %d", code, ExitUsage)
+	}
+	if _, _, code := run(t, "tls", "trust", "--fingerprint", strings.Repeat("00", 32)); code != ExitCheckFailed {
+		t.Fatalf("trust with a wrong fingerprint: exit %d, want %d", code, ExitCheckFailed)
+	}
+	out, _, code = run(t, "tls", "trust", "--fingerprint", fp, "-o", "json")
+	if code != ExitOK || decode(t, out)["pinned"] != true {
+		t.Fatalf("trust: exit %d\n%s", code, out)
+	}
+	out, _, _ = run(t, "tls", "-o", "json")
+	if decode(t, out)["trust"] != "pinned" {
+		t.Fatalf("after trust:\n%s", out)
 	}
 }

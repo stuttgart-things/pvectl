@@ -33,7 +33,7 @@ const (
 	EnvURL      = "PVE_API_URL"      // e.g. https://pve.example:8006/api2/json
 	EnvUser     = "PVE_API_USER"     // e.g. user@pve
 	EnvPassword = "PVE_API_PASSWORD" // never printed
-	EnvCACert   = "PVE_CA_CERT"      // optional: PEM file of the cluster CA
+	EnvCACert   = "PVE_CA_CERT"      // optional: the cluster CA, a PEM file path or the PEM itself
 )
 
 // Options configure a Client.
@@ -43,9 +43,13 @@ type Options struct {
 	Password string
 	// Insecure skips TLS verification. Opt-in only (--insecure).
 	Insecure bool
-	// CACertFile verifies the server against this PEM bundle instead of the
-	// system store (Proxmox signs with its own cluster CA).
-	CACertFile string
+	// CACert verifies the server against this CA instead of the system
+	// store (Proxmox signs with its own cluster CA): a PEM file path (~
+	// allowed) or the PEM itself.
+	CACert string
+	// KnownHosts holds pinned certificate fingerprints (pvectl tls trust);
+	// a pin is accepted when no CA vouches for the server. nil: no pins.
+	KnownHosts *KnownHosts
 	// Timeout per HTTP request; 0 means 60s.
 	Timeout time.Duration
 }
@@ -58,14 +62,14 @@ func (e *MissingEnvError) Error() string {
 		strings.Join(e.Vars, ", "))
 }
 
-// OptionsFromEnv reads PVE_API_URL, PVE_API_USER, PVE_API_PASSWORD and the
-// optional PVE_CA_CERT.
+// OptionsFromEnv reads PVE_API_URL, PVE_API_USER, PVE_API_PASSWORD, the
+// optional PVE_CA_CERT and the known-hosts file (PVE_KNOWN_HOSTS).
 func OptionsFromEnv() (Options, error) {
 	o := Options{
-		URL:        os.Getenv(EnvURL),
-		User:       os.Getenv(EnvUser),
-		Password:   os.Getenv(EnvPassword),
-		CACertFile: os.Getenv(EnvCACert),
+		URL:      os.Getenv(EnvURL),
+		User:     os.Getenv(EnvUser),
+		Password: os.Getenv(EnvPassword),
+		CACert:   os.Getenv(EnvCACert),
 	}
 	var missing []string
 	for name, v := range map[string]string{EnvURL: o.URL, EnvUser: o.User, EnvPassword: o.Password} {
@@ -77,6 +81,11 @@ func OptionsFromEnv() (Options, error) {
 		sort.Strings(missing)
 		return o, &MissingEnvError{Vars: missing}
 	}
+	k, err := LoadKnownHosts(DefaultKnownHostsPath())
+	if err != nil {
+		return o, fmt.Errorf("known hosts: %w", err)
+	}
+	o.KnownHosts = k
 	return o, nil
 }
 
@@ -106,19 +115,9 @@ func New(o Options) (*Client, error) {
 	if !strings.HasSuffix(base, "/api2/json") {
 		base += "/api2/json"
 	}
-	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
-	if o.Insecure {
-		tlsCfg.InsecureSkipVerify = true //nolint:gosec // opt-in via --insecure
-	} else if o.CACertFile != "" {
-		pem, err := os.ReadFile(o.CACertFile)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", EnvCACert, err)
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("%s: %s holds no PEM certificate", EnvCACert, o.CACertFile)
-		}
-		tlsCfg.RootCAs = pool
+	tlsCfg, err := tlsConfig(o)
+	if err != nil {
+		return nil, err
 	}
 	timeout := o.Timeout
 	if timeout == 0 {
@@ -170,11 +169,19 @@ func (c *Client) wrap(method, path string, err error) error {
 		}
 		return fmt.Errorf("%s %s: %d %s", method, path, apiErr.StatusCode, msg)
 	}
+	var untrusted *UntrustedCertError
+	var changed *CertChangedError
+	if errors.As(err, &untrusted) {
+		return untrusted
+	}
+	if errors.As(err, &changed) {
+		return changed
+	}
 	var certErr *tls.CertificateVerificationError
 	var unknownCA x509.UnknownAuthorityError
 	if errors.As(err, &certErr) || errors.As(err, &unknownCA) {
 		return fmt.Errorf("TLS: %v at %s. Proxmox signs with its own cluster CA (/etc/pve/pve-root-ca.pem on any node): "+
-			"point %s at a copy, or pass --insecure for this run", err, c.base, EnvCACert)
+			"point %s at a copy, or pin the certificate with 'pvectl tls trust'", err, c.base, EnvCACert)
 	}
 	var urlErr *url.Error
 	if errors.As(err, &urlErr) {
