@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,6 +35,7 @@ var promoteFlags struct {
 	os            string
 	repo          string
 	skipChecks    bool
+	allowOld      bool
 	dryRun        bool
 	yes           bool
 	timeout       time.Duration
@@ -124,7 +126,14 @@ func runPromote(cmd *cobra.Command, args []string) error {
 
 	o := promote.Options{SourceID: r.VMID, To: f.to, TargetStorage: f.targetStorage, Copy: f.copy,
 		CopyNode: f.copyNode, CopyStorage: f.copyStorage, CopyPool: f.copyPool, OS: f.os, SkipChecks: f.skipChecks}
+	var pinErr error
+	if f.repo != "" {
+		o.Pins, pinErr = repin.FindPins(f.repo, r.VMID)
+	}
 	plan, err := promote.Build(ctx, c, o)
+	if plan != nil && pinErr != nil {
+		plan.Notes = append(plan.Notes, "pins: "+pinErr.Error())
+	}
 	res := PromoteResult{DryRun: f.dryRun, Plan: plan, FollowUps: repin.FollowUps}
 	if plan != nil && f.repo != "" {
 		if rerr := repin.ReadCurrent(f.repo, plan.Repins); rerr != nil {
@@ -146,6 +155,11 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	}
 	if !jsonOut() && (f.dryRun || interactive()) && !f.yes {
 		printPlan(os.Stdout, plan, false)
+	}
+	if plan.NeedsAck() && !f.allowOld && !f.dryRun {
+		if err := ackWarnings(ctx, plan, &res); err != nil {
+			return err
+		}
 	}
 	proceed, err := writeGate(ctx, f.dryRun, f.yes, fmt.Sprintf("promote %d %s", plan.Source.VMID, plan.Source.Name),
 		[]string{"the steps above write to Proxmox"})
@@ -173,6 +187,38 @@ func runPromote(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// errNeedsAck: the plan has warnings and nobody acknowledged them.
+var errNeedsAck = errors.New("the plan has warnings (see above); pass --allow-old if this source is really the one to promote")
+
+// ackWarnings asks a human to confirm a plan with warnings (default no).
+// Without a TTY it fails with exit 4 naming --allow-old; --yes alone is
+// not enough.
+func ackWarnings(ctx context.Context, plan *promote.Plan, res *PromoteResult) error {
+	if !interactive() {
+		res.Error = errNeedsAck.Error()
+		if jsonOut() {
+			_ = printJSON(res)
+			return silentErr(ExitCheckFailed, errNeedsAck)
+		}
+		for _, w := range plan.Warnings {
+			logf("warning: %s", w)
+		}
+		return &cliError{code: ExitCheckFailed, flag: "--allow-old", err: errNeedsAck}
+	}
+	ok := false
+	q := huh.NewConfirm().
+		Title(fmt.Sprintf("%d has warnings. Promote it anyway?", plan.Source.VMID)).
+		Description(strings.Join(plan.Warnings, "\n")).
+		Affirmative("Yes, promote it").Negative("No").Value(&ok)
+	if err := huh.NewForm(huh.NewGroup(q)).RunWithContext(ctx); err != nil {
+		return err
+	}
+	if !ok {
+		return errAborted
+	}
+	return nil
+}
+
 func emitPromote(res PromoteResult) {
 	if jsonOut() {
 		_ = printJSON(res)
@@ -187,6 +233,15 @@ func printPlan(w io.Writer, p *promote.Plan, final bool) {
 	printSection(w, "checks")
 	for _, ch := range p.Checks {
 		_, _ = fmt.Fprintf(w, "%s %-17s %s\n", checkMark(ch), ch.Name, ch.Detail)
+	}
+	if len(p.Warnings) > 0 {
+		printSection(w, "warnings")
+		for _, msg := range p.Warnings {
+			_, _ = fmt.Fprintf(w, "%s %s\n", warnStyle.Render("!"), msg)
+		}
+		if p.Pending() && !final {
+			_, _ = fmt.Fprintln(w, dimStyle.Render("  a real run asks again (interactive) or needs --allow-old"))
+		}
 	}
 	if len(p.Steps) > 0 {
 		title := "plan"
@@ -329,6 +384,7 @@ func init() {
 	f.StringVar(&promoteFlags.os, "os", "", "repin key (default: from the template name, e.g. ubuntu26)")
 	f.StringVar(&promoteFlags.repo, "repo", "", "stuttgart-things checkout to read the current repin values from")
 	f.BoolVar(&promoteFlags.skipChecks, "skip-checks", false, "promote even if a config check fails")
+	f.BoolVar(&promoteFlags.allowOld, "allow-old", false, "promote even with warnings (a newer template exists, or --repo finds the source still pinned and it would be migrated)")
 	f.BoolVar(&promoteFlags.dryRun, "dry-run", false, "show the plan (API calls, new VMID/name), change nothing")
 	f.BoolVarP(&promoteFlags.yes, "yes", "y", false, "skip the confirmation (required without a TTY)")
 	f.DurationVar(&promoteFlags.timeout, "timeout", 3*time.Hour, "stop waiting after this duration (tasks keep running)")

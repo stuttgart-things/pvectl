@@ -74,6 +74,11 @@ func Filter(rs []Resource, filter string, kind Kind) []Resource {
 	id, idErr := strconv.Atoi(filter)
 	var out []Resource
 	for _, r := range rs {
+		if idErr == nil && r.VMID == id {
+			// an exact VMID finds the guest whatever kind was asked for
+			out = append(out, r)
+			continue
+		}
 		switch kind {
 		case KindVMs:
 			if bool(r.Template) {
@@ -84,7 +89,7 @@ func Filter(rs []Resource, filter string, kind Kind) []Resource {
 				continue
 			}
 		}
-		if filter == "" || strings.Contains(r.Name, filter) || (idErr == nil && r.VMID == id) {
+		if filter == "" || strings.Contains(r.Name, filter) {
 			out = append(out, r)
 		}
 	}

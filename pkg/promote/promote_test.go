@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stuttgart-things/pvectl/pkg/pve"
+	"github.com/stuttgart-things/pvectl/pkg/repin"
 )
 
 type fakeAPI struct {
@@ -194,5 +195,38 @@ func TestBlockedTarget(t *testing.T) {
 	}
 	if _, err := Build(context.Background(), api, Options{SourceID: 280, To: "ul-pve11", TargetStorage: "local-lvm"}); err != nil {
 		t.Fatalf("with target storage: %v", err)
+	}
+}
+
+func TestWarnOlderTemplate(t *testing.T) {
+	api := fresh()
+	api.rs = append(api.rs,
+		pve.Resource{VMID: 266, Name: "ubuntu26-base-20261002-0758", Node: "ul-pve11", Template: true},
+		pve.Resource{VMID: 282, Name: srcName + "-fs9100", Node: "ul-pve01", Template: true})
+	api.cfgs[266] = goodCfg()
+	p, err := Build(context.Background(), api, Options{SourceID: 266, To: "ul-pve11", Copy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Warnings) != 1 || !p.NeedsAck() {
+		t.Fatalf("warnings %v", p.Warnings)
+	}
+	// the newest one has no warning
+	p, err = Build(context.Background(), api, Options{SourceID: 280, To: "ul-pve11", Copy: true})
+	if err != nil || len(p.Warnings) != 0 {
+		t.Fatalf("%v %v", err, p.Warnings)
+	}
+}
+
+func TestWarnPinnedOnlyWhenMigrating(t *testing.T) {
+	api := fresh()
+	pins := []repin.Pin{{File: "clusters/xrs/sbx.yaml", Line: 39, Key: "templateVmId"}}
+	p, err := Build(context.Background(), api, Options{SourceID: 280, To: "ul-pve11", Pins: pins})
+	if err != nil || len(p.Warnings) != 1 {
+		t.Fatalf("migrate: %v %v", err, p.Warnings)
+	}
+	p, err = Build(context.Background(), api, Options{SourceID: 280, Copy: true, Pins: pins})
+	if err != nil || len(p.Warnings) != 0 {
+		t.Fatalf("copy only: %v %v", err, p.Warnings)
 	}
 }

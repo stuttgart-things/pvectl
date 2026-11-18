@@ -134,9 +134,9 @@ type Check struct {
 //     Packer plugin does not always carry cpu_type through (#4650).
 //   - agent enabled, or Proxmox never learns the guest IP.
 //   - a cloud-init drive on a VM, or it keeps the template hostname/user.
-//     On a template a missing drive is only a warning: the LabUL templates
-//     (211, 266, 280, 282 in 2026-11) have none, bpg (initialization) and
-//     Telmate add it to every clone.
+//     On a template a missing drive is expected and passes: the LabUL
+//     templates (211, 266, 280, 282 in 2026-11) have none, bpg
+//     (initialization) and Telmate add one to every clone.
 func CheckConfig(cfg Config) []Check {
 	var checks []Check
 
@@ -174,8 +174,8 @@ func CheckConfig(cfg Config) []Check {
 	case ci != "":
 		checks = append(checks, Check{Name: "cloud-init drive", OK: true, Detail: ci})
 	case cfg.IsTemplate():
-		checks = append(checks, Check{Name: "cloud-init drive", Warn: true,
-			Detail: "none on the template; the clone tool must add one (bpg initialization, Telmate cloudinit drive)"})
+		checks = append(checks, Check{Name: "cloud-init drive", OK: true,
+			Detail: "none on the template (expected: bpg initialization / Telmate add one per clone)"})
 	default:
 		checks = append(checks, Check{Name: "cloud-init drive", Detail: "none (the VM keeps the template hostname)"})
 	}

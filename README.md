@@ -82,7 +82,7 @@ nothing is written) and `--yes`. A description parameter shows as
 |---|---|
 | `cpu` = `host` | EL10 needs x86-64-v3; the Packer plugin did not always carry `cpu_type` through (#4650) |
 | `agent` enabled | without it Proxmox never learns the guest IP |
-| cloud-init drive | a VM without one keeps the template hostname. On a **template** a missing drive is only a warning (`!`): none of the LabUL templates (211, 266, 280, 282) has one, because bpg (`initialization`) and Telmate add it to every clone |
+| cloud-init drive | a VM without one keeps the template hostname. On a **template** a missing drive passes: none of the LabUL templates (211, 266, 280, 282) has one, because bpg (`initialization`) and Telmate add one to every clone |
 
 A failed check exits with 4. Warnings do not.
 
@@ -93,6 +93,11 @@ Packer (ul-pve01) ──> 1. checks ──> 2. migrate --to ul-pve11 ──> 3. 
 ```
 
 1. **checks**: as in `config`. A failure stops the run (exit 4) unless you pass `--skip-checks`.
+   **Warnings** guard against promoting the wrong template: a newer template of the same OS exists
+   (by the build stamp `-YYYYMMDD-HHMM` in the name), or, with `--repo`, the source is still pinned
+   (`templateVmId`/`vm_clone_id` in claims, XRs, backstage runs) and would be migrated. With warnings
+   a run asks a second time (interactive, default no) or needs `--allow-old` (exit 4 without it).
+   `--dry-run` shows them and exits 0.
 2. **migrate**: the template moves to `--to` (ul-pve11), so the proxmoxvm chart can leave `templateNode` empty.
 3. **FS9100 copy**: a full clone `<name>-fs9100` with `storage=FS9100-01-1`, `target=ul-pve01` and
    `pool=stuttgart-things`, which is then converted to a template. Telmate Terraform (create-terraform-vm)
@@ -137,7 +142,7 @@ sops exec-env $E 'pvectl --insecure template promote 290 --to ul-pve11 --fs9100-
 | 1 | `error` | API, network or TLS error |
 | 2 | `usage` | bad or missing flag/argument, missing environment, write without `--yes` in programmatic mode |
 | 3 | `not_found` | VM, template, node or task not found; `vms` without a match |
-| 4 | `check_failed` | config check failed, or the promote source is not a template |
+| 4 | `check_failed` | config check failed, the promote source is not a template, or a promote with warnings without `--allow-old` |
 | 5 | `task_failed` | a Proxmox task ended with an error |
 | 130 | `aborted` | aborted at a prompt or by Ctrl+C (Ctrl+C while following a task detaches; the task keeps running) |
 
