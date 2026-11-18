@@ -7,25 +7,14 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	ltable "github.com/charmbracelet/lipgloss/table"
 	"github.com/stuttgart-things/pvectl/pkg/pve"
-)
-
-// Styles, in the palette of stuttgart-things/claims.
-var (
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	sectionStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#04B575"))
-	keyStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
-	okStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#04B575")).Bold(true)
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5F87")).Bold(true)
-	warnStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C")).Bold(true)
-	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#767676"))
-	boxStyle     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#7D56F4")).Padding(0, 1)
 )
 
 // printSection prints a section header after one blank line.
 func printSection(w io.Writer, title string) {
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, sectionStyle.Render("━━━ "+title+" ━━━"))
+	_, _ = fmt.Fprintln(w, heading(title))
 }
 
 func checkMark(c pve.Check) string {
@@ -45,6 +34,10 @@ func mark(ok bool) string {
 // table renders rows with columns padded to the widest cell (no colors in
 // cells, so widths stay right).
 func table(w io.Writer, header []string, rows [][]string) {
+	if fancy() {
+		fancyTable(w, header, rows, nil)
+		return
+	}
 	widths := make([]int, len(header))
 	for i, h := range header {
 		widths[i] = len(h)
@@ -89,4 +82,46 @@ func fmtUptime(sec int64) string {
 		return ""
 	}
 	return fmt.Sprintf("%dh%02dm", sec/3600, (sec%3600)/60)
+}
+
+// fancyTable renders a rounded, colored table. cell may restyle a cell
+// (row index into rows, column); it gets the plain value.
+func fancyTable(w io.Writer, header []string, rows [][]string, cell func(row, col int, v string) string) {
+	shown := rows
+	if cell != nil {
+		shown = make([][]string, len(rows))
+		for i, r := range rows {
+			shown[i] = make([]string, len(r))
+			for j, v := range r {
+				shown[i][j] = cell(i, j, v)
+			}
+		}
+	}
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(colPink).Padding(0, 1)
+	even := lipgloss.NewStyle().Padding(0, 1).Foreground(colText)
+	odd := even.Foreground(lipgloss.AdaptiveColor{Light: "#3A3A3A", Dark: "#BDBDBD"})
+	t := ltable.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(colPurple)).
+		Headers(header...).
+		Rows(shown...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			switch {
+			case row == ltable.HeaderRow:
+				return headerStyle
+			case row%2 == 0:
+				return even
+			default:
+				return odd
+			}
+		})
+	_, _ = fmt.Fprintln(w, t.Render())
+	_, _ = fmt.Fprintln(w, dimStyle.Render(fmt.Sprintf("  %d %s", len(rows), plural(len(rows), "entry", "entries"))))
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

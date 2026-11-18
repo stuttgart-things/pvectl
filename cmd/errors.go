@@ -118,11 +118,15 @@ func reportError(err error) int {
 		if errors.Is(err, errDetached) {
 			_, _ = fmt.Fprintln(os.Stderr, err.Error())
 		} else {
-			_, _ = fmt.Fprintln(os.Stderr, "Aborted.")
+			_, _ = fmt.Fprintln(os.Stderr, warnStyle.Render("↩ ")+"Aborted, nothing changed.")
 		}
 		return code
 	}
-	_, _ = fmt.Fprintln(os.Stderr, errorStyle.Render("Error: ")+err.Error())
+	if stderrTTY() {
+		_, _ = fmt.Fprintln(os.Stderr, pill("ERROR", colRed)+" "+err.Error()+dimStyle.Render(fmt.Sprintf("  (exit %d, %s)", code, kinds[code])))
+	} else {
+		_, _ = fmt.Fprintln(os.Stderr, errorStyle.Render("Error: ")+err.Error())
+	}
 	if code == ExitUsage {
 		_, _ = fmt.Fprintln(os.Stderr, dimStyle.Render("Run 'pvectl <command> --help' for usage and examples."))
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/stuttgart-things/pvectl/pkg/pve"
 )
@@ -146,7 +147,28 @@ func printVMs(rows []VMRow, filter string) {
 			}
 			t = append(t, []string{fmt.Sprint(r.VMID), r.Name, r.Node, status, fmtUptime(r.Uptime), r.Tags})
 		}
-		table(w, []string{"VMID", "NAME", "NODE", "STATUS", "UPTIME", "TAGS"}, t)
+		header := []string{"VMID", "NAME", "NODE", "STATUS", "UPTIME", "TAGS"}
+		if !fancy() {
+			table(w, header, t)
+			return
+		}
+		fancyTable(w, header, t, func(row, col int, v string) string {
+			switch col {
+			case 0:
+				return keyStyle.Bold(true).Render(v)
+			case 3:
+				return statusCell(rows[row].Status, bool(rows[row].Template))
+			case 5:
+				return lipgloss.NewStyle().Foreground(colDim).Italic(true).Render(v)
+			}
+			return v
+		})
+		return
+	}
+	if fancy() {
+		for _, r := range rows {
+			_, _ = fmt.Fprintln(w, vmCard(r))
+		}
 		return
 	}
 	for _, r := range rows {
@@ -189,4 +211,40 @@ func init() {
 	f.BoolVar(&vmsFlags.details, "details", false, "guest IP and recent qm*/ha* tasks per VM (default: on with a filter)")
 	f.IntVar(&vmsFlags.days, "days", 4, "task window for --details, in days")
 	rootCmd.AddCommand(vmsCmd)
+}
+
+// vmCard is the detailed view of one guest: status, IPs, recent tasks.
+func vmCard(r VMRow) string {
+	kv := func(k, v string) string { return keyStyle.Render(fmt.Sprintf("%-8s", k)) + v }
+	lines := []string{
+		guestTitle(r.VMID, r.Name, r.Node, bool(r.Template)),
+		"",
+		kv("status", statusCell(r.Status, bool(r.Template))+dimStyle.Render("  "+fmtUptime(r.Uptime))),
+	}
+	switch {
+	case r.IPError != "":
+		lines = append(lines, kv("ip", dimStyle.Render(r.IPError)))
+	case len(r.IPs) > 0:
+		lines = append(lines, kv("ip", okStyle.Render(strings.Join(r.IPs, "  "))))
+	}
+	if r.Tags != "" {
+		lines = append(lines, kv("tags", lipgloss.NewStyle().Foreground(colPink).Render(strings.ReplaceAll(r.Tags, ";", " · "))))
+	}
+	if len(r.Tasks) > 0 {
+		lines = append(lines, "", sectionStyle.Render(fmt.Sprintf("tasks (last %d days)", vmsFlags.days)))
+		for _, t := range r.Tasks {
+			st := okStyle.Render("✓ " + t.Status)
+			switch {
+			case t.Running():
+				st = warnStyle.Render("◐ running")
+			case t.Status != "OK":
+				st = errorStyle.Render("✗ " + t.Status)
+			}
+			lines = append(lines, fmt.Sprintf("%s  %-12s %s  %s", dimStyle.Render(fmtTime(t.StartTime)), t.Type, dimStyle.Render(t.User), st))
+		}
+		if r.NumTasks > len(r.Tasks) {
+			lines = append(lines, dimStyle.Render(fmt.Sprintf("… %d in total", r.NumTasks)))
+		}
+	}
+	return card(cardStyle, strings.Join(lines, "\n"))
 }

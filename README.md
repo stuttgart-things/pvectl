@@ -6,6 +6,8 @@ Packer template (FS9100 copy for Terraform, move to ul-pve11, print the
 repins). It replaces `hack/labul/pve.py` and the one-off scripts of the
 2026-11 template rounds ([stuttgart-things#4652](https://github.com/stuttgart-things/stuttgart-things/issues/4652)).
 
+<p align="center"><img src="docs/img/menu.png" alt="pvectl start menu" width="760"></p>
+
 > **VM descriptions (notes) are never printed.** In the LabUL-Template pool
 > they hold plaintext passwords. The library drops `description` when it reads
 > a config, and no command or flag shows it. `cipassword` shows as `(set)`.
@@ -53,6 +55,22 @@ there is no `--non-interactive`. Otherwise it is **programmatic**.
 | writes | summary + confirmation (`--yes` skips it) | need `--yes`, or `--dry-run` for the plan |
 | long tasks | spinner, progress bar from the task log (`(x%)`), last log line | log lines on stderr |
 | output | readable text | `-o json`: one JSON document on stdout, logs/progress on stderr |
+| `pvectl` alone | start menu: logo, all commands, read/write marked | the help |
+
+### The terminal look
+
+On a terminal, text output gets cards, colored tables and badges
+([Charm](https://charm.sh) lipgloss/huh/bubbletea). Piped text output stays
+plain and grep-able, as before; `-o json` is never styled. Long lines wrap to
+the terminal width.
+
+| `vms` | `vms <name>` |
+|---|---|
+| ![vms](docs/img/vms.png) | ![vm card](docs/img/vm.png) |
+| **`config`** | **`template promote --dry-run`** |
+| ![config](docs/img/config.png) | ![promote plan](docs/img/promote.png) |
+
+(Screenshots from a fake API with made-up data.)
 
 Every prompt has a flag counterpart. `pvectl <cmd> --help` shows examples
 for both modes.

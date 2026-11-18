@@ -29,7 +29,7 @@ func pickGuest(ctx context.Context, c *pve.Client, kind pve.Kind, title string) 
 	}
 	var id int
 	sel := huh.NewSelect[int]().Title(title).Description("type / to filter").Options(options...).Value(&id).Height(15)
-	if err := huh.NewForm(huh.NewGroup(sel)).RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, sel); err != nil {
 		return pve.Resource{}, err
 	}
 	return pve.FindIn(rs, id)
@@ -57,7 +57,7 @@ func pickNode(ctx context.Context, c *pve.Client, title, exclude, preferred stri
 	}
 	node := preferred
 	sel := huh.NewSelect[string]().Title(title).Options(options...).Value(&node)
-	if err := huh.NewForm(huh.NewGroup(sel)).RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, sel); err != nil {
 		return "", err
 	}
 	return node, nil
@@ -86,7 +86,7 @@ func pickStorage(ctx context.Context, c *pve.Client, node, title string, sharedO
 	}
 	st := preferred
 	sel := huh.NewSelect[string]().Title(title).Options(options...).Value(&st)
-	if err := huh.NewForm(huh.NewGroup(sel)).RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, sel); err != nil {
 		return "", err
 	}
 	return st, nil
@@ -95,10 +95,10 @@ func pickStorage(ctx context.Context, c *pve.Client, node, title string, sharedO
 // confirm shows a summary and asks yes/no. No means errAborted.
 func confirm(ctx context.Context, title string, summary []string) error {
 	fmt.Println()
-	fmt.Println(boxStyle.Render(titleStyle.Render(title) + "\n\n" + strings.Join(summary, "\n")))
+	fmt.Println(cardStyle.BorderForeground(colPink).Render(pill("WRITE", colPink) + " " + titleStyle.Render(title) + "\n\n" + strings.Join(summary, "\n")))
 	ok := false
 	c := huh.NewConfirm().Title("Proceed?").Affirmative("Yes").Negative("No").Value(&ok)
-	if err := huh.NewForm(huh.NewGroup(c)).RunWithContext(ctx); err != nil {
+	if err := runForm(ctx, c); err != nil {
 		return err
 	}
 	if !ok {

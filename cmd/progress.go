@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stuttgart-things/pvectl/pkg/pve"
 )
 
@@ -130,9 +131,10 @@ func (m taskModel) View() string {
 
 func waitTaskUI(ctx context.Context, title string, run func(context.Context, func(pve.TaskEvent)) (pve.TaskStatus, error)) (pve.TaskStatus, error) {
 	sp := spinner.New()
-	sp.Spinner = spinner.Dot
-	sp.Style = titleStyle
-	m := taskModel{title: title, spin: sp, bar: progress.New(progress.WithDefaultGradient(), progress.WithWidth(50)), start: time.Now()}
+	sp.Spinner = spinner.MiniDot
+	sp.Style = lipgloss.NewStyle().Foreground(colPink).Bold(true)
+	bar := progress.New(progress.WithGradient(gradFrom, gradTo), progress.WithWidth(50))
+	m := taskModel{title: title, spin: sp, bar: bar, start: time.Now()}
 	p := tea.NewProgram(m, tea.WithOutput(os.Stderr), tea.WithContext(ctx))
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

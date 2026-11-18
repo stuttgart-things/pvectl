@@ -287,3 +287,43 @@ func TestVMsFindsTemplateByVMID(t *testing.T) {
 		t.Fatalf("exit %d %s", code, out)
 	}
 }
+
+// The terminal look (cards, tables, banner) must not leak descriptions either.
+func TestFancyOutputHasNoDescription(t *testing.T) {
+	fakeLab(t)
+	fancyOverride = true
+	t.Cleanup(func() { fancyOverride = false })
+	for _, args := range [][]string{
+		{"config", "280"},
+		{"config", "266"},
+		{"vms", "--all"},
+		{"vms", "266"},
+		{"template", "promote", "280", "--to", "ul-pve11", "--fs9100-copy", "--dry-run"},
+		{"template", "promote", "266", "--fs9100-copy", "--dry-run"},
+	} {
+		out, errOut, code := run(t, args...)
+		if code != ExitOK {
+			t.Fatalf("%v: exit %d\n%s%s", args, code, out, errOut)
+		}
+		if strings.Contains(out+errOut, "hunter2") || strings.Contains(out+errOut, "description:") {
+			t.Fatalf("%v leaks the description:\n%s", args, out)
+		}
+		if !strings.Contains(out, "╭") {
+			t.Fatalf("%v: no card or table in the fancy output:\n%s", args, out)
+		}
+	}
+	out, _, _ := run(t, "template", "promote", "266", "--fs9100-copy", "--dry-run")
+	if !strings.Contains(out, "WARNINGS") || !strings.Contains(out, "is not the newest") {
+		t.Fatalf("promote card without warnings:\n%s", out)
+	}
+}
+
+func TestRootWithoutTTYPrintsHelp(t *testing.T) {
+	out, _, code := run(t)
+	if code != ExitOK || !strings.Contains(out, "Usage:") || strings.Contains(out, "█") {
+		t.Fatalf("exit %d, want the plain help:\n%s", code, out)
+	}
+	if _, _, code := run(t, "nosuchcommand"); code != ExitUsage {
+		t.Fatalf("unknown command: exit %d, want %d", code, ExitUsage)
+	}
+}
