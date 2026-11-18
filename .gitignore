@@ -29,7 +29,8 @@ go.work.sum
 # IDE and editor directories
 .idea/
 .vscode/
-.claude/
+.claude/*
+!.claude/settings.json
 *.swp
 *.swo
 *~
