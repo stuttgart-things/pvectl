@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/stuttgart-things/pvectl/compare/v0.1.1...v0.2.0) (2026-11-18)
+
+
+### Features
+
+* **promote:** warn about older or pinned templates, require --allow-old ([#11](https://github.com/stuttgart-things/pvectl/issues/11)) ([be5701c](https://github.com/stuttgart-things/pvectl/commit/be5701cf25782b8e997788f0bed159616abe3566))
+
 ## [0.1.1](https://github.com/stuttgart-things/pvectl/compare/v0.1.0...v0.1.1) (2026-11-18)
 
 
