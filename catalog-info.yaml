@@ -1,0 +1,16 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: pvectl
+  description: Go CLI and library for LabUL Proxmox template work (vms, config checks, tasks, migrate, template promote)
+  annotations:
+    github.com/project-slug: stuttgart-things/pvectl
+  tags:
+    - golang
+    - cli
+    - proxmox
+spec:
+  type: tool
+  lifecycle: experimental
+  owner: group:default/platform-team
