@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/stuttgart-things/pvectl/compare/v0.3.0...v0.4.0) (2026-11-19)
+
+
+### Features
+
+* **tls:** pin the API certificate instead of --insecure ([#15](https://github.com/stuttgart-things/pvectl/issues/15)) ([8e5b100](https://github.com/stuttgart-things/pvectl/commit/8e5b100d6c0ddc095c0eadc7fff02b5caf943b6d))
+
 # [0.3.0](https://github.com/stuttgart-things/pvectl/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
