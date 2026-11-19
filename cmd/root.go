@@ -38,9 +38,11 @@ Credentials come from the environment and are never printed:
   PVE_API_URL       https://<host>:8006/api2/json
   PVE_API_USER      user@realm
   PVE_API_PASSWORD  password
-  PVE_CA_CERT       optional: PEM of the cluster CA (/etc/pve/pve-root-ca.pem)
+  PVE_CA_CERT       optional: the cluster CA (/etc/pve/pve-root-ca.pem), path or PEM
 
-TLS is verified (PVE_CA_CERT, else the system store); --insecure skips it for one run.
+TLS is always verified: by the system store or PVE_CA_CERT, else by a
+certificate pinned once with 'pvectl tls trust' (like SSH known_hosts; a
+first interactive run offers it). --insecure skips the check: last resort.
 
 Two modes, same logic:
   interactive      a TTY, no -o json, no --non-interactive: missing arguments are
@@ -82,7 +84,7 @@ func init() {
 	pf := rootCmd.PersistentFlags()
 	pf.StringVarP(&opts.output, "output", "o", "text", "output format: text or json")
 	pf.BoolVar(&opts.nonInteractive, "non-interactive", false, "never prompt; fail with the missing flag instead")
-	pf.BoolVar(&opts.insecure, "insecure", false, "skip TLS verification for this run")
+	pf.BoolVar(&opts.insecure, "insecure", false, "skip TLS verification for this run (last resort; see 'pvectl tls trust')")
 	rootCmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
 		return &cliError{code: ExitUsage, err: err}
 	})
@@ -92,6 +94,9 @@ func init() {
 func Execute() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := rootCmd.ExecuteContext(ctx)
+	if err != nil && offerTrust(ctx, err) {
+		err = rootCmd.ExecuteContext(ctx)
+	}
 	stop()
 	os.Exit(reportError(err))
 }

@@ -34,14 +34,37 @@ From the environment only, never printed, never stored:
 | `PVE_API_URL` | `https://<host>:8006/api2/json` |
 | `PVE_API_USER` | `user@realm` (ticket login, user/password) |
 | `PVE_API_PASSWORD` | |
-| `PVE_CA_CERT` | optional: PEM of the cluster CA (`/etc/pve/pve-root-ca.pem` on any node) |
+| `PVE_CA_CERT` | optional: the cluster CA (`/etc/pve/pve-root-ca.pem` on any node), a file path or the PEM itself |
+| `PVE_KNOWN_HOSTS` | optional: the file of pinned certificates (default `~/.config/pvectl/known_hosts`) |
 
 ```bash
 sops exec-env ~/.secrets.d/labul/proxmox.env 'pvectl vms ubuntu26'
 ```
 
-TLS is verified against `PVE_CA_CERT`, else the system store. The lab's
-certificate is in neither by default; `--insecure` skips the check for one run.
+### TLS without `--insecure`
+
+TLS is always verified, in this order:
+
+1. **CA**: the system store or `PVE_CA_CERT`. Proxmox signs node certificates
+   with its own cluster CA (`/etc/pve/pve-root-ca.pem`, valid for 10 years).
+   This option survives certificate renewals.
+2. **Pinned certificate**, like SSH `known_hosts`. Pin it once:
+
+   ```bash
+   sops exec-env ~/.secrets.d/labul/proxmox.env 'pvectl tls trust'
+   ```
+
+   It shows the SHA-256 of the node certificate. Compare it with the web UI
+   (node > System > Certificates, `pve-ssl.pem`) and confirm. The first
+   interactive run of any command offers this by itself. From then on,
+   pvectl accepts exactly this certificate for this host, and stops with
+   `CHANGED` if it is ever different (after a renewal, run `tls trust`
+   again). Programmatic: `pvectl tls trust --fingerprint AB:CD:…` (checked
+   against the server) or `--yes`.
+3. `--insecure` skips the check for one run. Use it only as a last resort.
+
+`pvectl tls` shows the certificate and its state: `ca`, `pinned`, `changed`
+or `untrusted`.
 
 ## Two modes, same logic
 
@@ -135,10 +158,10 @@ its source and creates the copy.
 
 ```bash
 E=~/.secrets.d/labul/proxmox.env
-sops exec-env $E 'pvectl --insecure template promote 290 --to ul-pve11 --fs9100-copy --dry-run'
-sops exec-env $E 'pvectl --insecure template promote 290 --to ul-pve11 --fs9100-copy --repo ~/projects/stuttgart-things'
+sops exec-env $E 'pvectl template promote 290 --to ul-pve11 --fs9100-copy --dry-run'
+sops exec-env $E 'pvectl template promote 290 --to ul-pve11 --fs9100-copy --repo ~/projects/stuttgart-things'
 # CI / agent
-sops exec-env $E 'pvectl --insecure template promote 290 --to ul-pve11 --fs9100-copy --yes -o json' | jq '.plan.repins'
+sops exec-env $E 'pvectl template promote 290 --to ul-pve11 --fs9100-copy --yes -o json' | jq '.plan.repins'
 ```
 
 ## JSON contract (`-o json`)
@@ -189,7 +212,7 @@ plan, err := promote.Build(ctx, c, promote.Options{SourceID: 290, To: "ul-pve11"
 | `pve.py start <node> <vmid>` | `pvectl start <node> <vmid>` |
 | `pve.py ha-recover <node> <vmid>` | `pvectl ha-recover <node> <vmid>` |
 | `pve.py migrate <node> <vmid> <target> [--targetstorage S]` | `pvectl migrate <node> <vmid> <target> [--targetstorage S]` |
-| `pve.py --insecure …` | `pvectl --insecure …` |
+| `pve.py --insecure …` | `pvectl …` after a one-time `pvectl tls trust` |
 | `pvecfg`, `pve199`, `pvefind`, `pvetpl`, `pvetask`, `pve-fs9100-copy` | `config`, `vms --templates`, `tasks --follow`, `template promote --fs9100-copy` |
 
 Writes now need a confirmation or `--yes`. pve.py wrote without asking.
