@@ -206,7 +206,7 @@ sops exec-env $E 'pvectl template promote 290 --to ul-pve11 --fs9100-copy --yes 
 
 ```go
 import (
-    "github.com/stuttgart-things/pvectl/pkg/pve"      // client, configs (no description), checks, tasks, migrate, clone, HA
+    "github.com/stuttgart-things/pvectl/pkg/pve"      // client, configs (no description), checks, tasks, migrate, clone, rename, delete, HA, networks, storages
     "github.com/stuttgart-things/pvectl/pkg/promote"  // Build (plan, read-only) and Execute
     "github.com/stuttgart-things/pvectl/pkg/repin"    // the stuttgart-things changes after a promotion
 )
@@ -216,7 +216,40 @@ c, _ := pve.New(o)
 plan, err := promote.Build(ctx, c, promote.Options{SourceID: 290, To: "ul-pve11", Copy: true})
 ```
 
+Without a known-hosts file (a pipeline), pin the certificate in memory:
+
+```go
+k, _ := pve.PinnedKnownHosts(url, "33:91:DF:48:…")
+c, _ := pve.New(pve.Options{URL: url, TokenID: id, TokenSecret: secret, KnownHosts: k})
+r, _ := c.FindByName(ctx, "ubuntu26-labul-proxmox-base-os", "LabUL-Template", "")
+```
+
 `pkg/pve/pvetest` is a fake Proxmox API for tests.
+
+## Dagger
+
+The [pvectl Dagger module](https://github.com/stuttgart-things/dagger/tree/main/pvectl)
+runs this CLI from `ghcr.io/stuttgart-things/pvectl` with an API token and a
+pinned fingerprint (or `--ca-cert`):
+
+```bash
+E=~/.secrets.d/labul/proxmox.env
+M=github.com/stuttgart-things/dagger/pvectl@v0.140.0
+FP=33:91:DF:48:E5:34:B2:BC:76:AD:5C:92:AE:DB:8E:7D:3B:17:6D:A1:45:41:2C:44:12:1F:C1:EB:9D:65:57:13
+CONN="--url \$PVE_API_URL --fingerprint $FP --token-id env:PVE_API_TOKEN_ID --token-secret env:PVE_API_TOKEN_SECRET"
+
+# templates
+sops exec-env $E "dagger call -m $M $CONN vms --templates" | jq -r '.[] | "\(.vmid) \(.node) \(.name)"'
+
+# promote plan (nothing is written), with the current repins from a checkout
+sops exec-env $E "dagger call -m $M $CONN template-promote --vmid 290 --repo ~/projects/stuttgart-things" | jq .plan
+
+# carry it out
+sops exec-env $E "dagger call -m $M $CONN template-promote --vmid 290 --apply" | jq .plan.repins
+```
+
+The fingerprint is the one of `ul-pve01.labul.sva.de` until 2028-01-28;
+`pvectl tls` shows the current one.
 
 ## From pve.py
 
