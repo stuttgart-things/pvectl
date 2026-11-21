@@ -25,6 +25,12 @@ go install github.com/stuttgart-things/pvectl@latest
 # container image (for Dagger/Tekton): ghcr.io/stuttgart-things/pvectl
 ```
 
+Once per machine, trust the Proxmox certificate (since v0.4.0; see
+[TLS without `--insecure`](#tls-without---insecure)):
+```bash
+sops exec-env ~/.secrets.d/labul/proxmox.env 'pvectl tls trust'
+```
+
 ## Credentials
 
 From the environment only, never printed, never stored:
@@ -108,6 +114,8 @@ for both modes.
 | `tasks --follow <upid>` | follow a task until it stops; exit 5 if it failed | no |
 | `ha [<node>] [vmid]` | HA resource and state, recent tasks, log of the last start/migrate | no |
 | `repin` | the stuttgart-things values for a new template/copy VMID | no |
+| `tls` | the API certificate (subject, names, expiry, SHA-256) and its trust state; no login | no |
+| `tls trust` | pin the API certificate in the known-hosts file; `--fingerprint` (checked against the server) or `--yes` | local file only |
 | `migrate [<node> <vmid> <target>]` | online if running, with local disks if any, waits for the task; `--targetstorage` | yes |
 | `template promote [vmid]` | checks → migrate `--to` → FS9100 copy `--fs9100-copy` → repins | yes |
 | `start [<node>] [vmid]` | start a stopped VM, wait for its IP; refuses on HA `error` | yes |
@@ -180,10 +188,10 @@ sops exec-env $E 'pvectl template promote 290 --to ul-pve11 --fs9100-copy --yes 
 | Code | Kind | Meaning |
 |---|---|---|
 | 0 | | ok, including "nothing to do" |
-| 1 | `error` | API, network or TLS error |
-| 2 | `usage` | bad or missing flag/argument, missing environment, write without `--yes` in programmatic mode |
+| 1 | `error` | API or network error; TLS: certificate `untrusted` (run `pvectl tls trust`) or pinned one `CHANGED` |
+| 2 | `usage` | bad or missing flag/argument, missing environment, write without `--yes` in programmatic mode, `tls trust` without `--fingerprint`/`--yes` |
 | 3 | `not_found` | VM, template, node or task not found; `vms` without a match |
-| 4 | `check_failed` | config check failed, the promote source is not a template, or a promote with warnings without `--allow-old` |
+| 4 | `check_failed` | config check failed, the promote source is not a template, a promote with warnings without `--allow-old`, or `tls trust --fingerprint` does not match the server |
 | 5 | `task_failed` | a Proxmox task ended with an error |
 | 130 | `aborted` | aborted at a prompt or by Ctrl+C (Ctrl+C while following a task detaches; the task keeps running) |
 
