@@ -3,7 +3,7 @@ module github.com/stuttgart-things/pvectl
 go 1.27.1
 
 require (
-	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
+	github.com/charmbracelet/bubbles/v2 v2.2.2
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
