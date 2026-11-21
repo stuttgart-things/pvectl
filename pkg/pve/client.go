@@ -1,7 +1,8 @@
 // Package pve is a small Proxmox VE API layer for the LabUL template work:
 // cluster resources, VM configs (without notes), tasks, migrate, clone and
 // HA. It wraps github.com/luthermonson/go-proxmox for transport and the
-// ticket login (user/password), and keeps the typed results pvectl needs.
+// login (an API token, or a ticket from user/password), and keeps the typed
+// results pvectl needs.
 //
 // Two rules hold for everything in this package:
 //
@@ -34,11 +35,19 @@ const (
 	EnvUser     = "PVE_API_USER"     // e.g. user@pve
 	EnvPassword = "PVE_API_PASSWORD" // never printed
 	EnvCACert   = "PVE_CA_CERT"      // optional: the cluster CA, a PEM file path or the PEM itself
+	// API token, instead of user/password (for CI and Dagger).
+	EnvTokenID     = "PVE_API_TOKEN_ID"     // user@realm!tokenname
+	EnvTokenSecret = "PVE_API_TOKEN_SECRET" // the token UUID; never printed
 )
 
 // Options configure a Client.
 type Options struct {
-	URL      string
+	URL string
+	// TokenID (user@realm!name) and TokenSecret log in with an API token;
+	// set, they take precedence over User/Password.
+	TokenID     string
+	TokenSecret string
+	// User and Password log in with a ticket (/access/ticket).
 	User     string
 	Password string
 	// Insecure skips TLS verification. Opt-in only (--insecure).
@@ -62,17 +71,24 @@ func (e *MissingEnvError) Error() string {
 		strings.Join(e.Vars, ", "))
 }
 
-// OptionsFromEnv reads PVE_API_URL, PVE_API_USER, PVE_API_PASSWORD, the
+// OptionsFromEnv reads PVE_API_URL, an API token (PVE_API_TOKEN_ID and
+// PVE_API_TOKEN_SECRET) or else PVE_API_USER and PVE_API_PASSWORD, the
 // optional PVE_CA_CERT and the known-hosts file (PVE_KNOWN_HOSTS).
 func OptionsFromEnv() (Options, error) {
 	o := Options{
-		URL:      os.Getenv(EnvURL),
-		User:     os.Getenv(EnvUser),
-		Password: os.Getenv(EnvPassword),
-		CACert:   os.Getenv(EnvCACert),
+		URL:         os.Getenv(EnvURL),
+		TokenID:     os.Getenv(EnvTokenID),
+		TokenSecret: os.Getenv(EnvTokenSecret),
+		User:        os.Getenv(EnvUser),
+		Password:    os.Getenv(EnvPassword),
+		CACert:      os.Getenv(EnvCACert),
+	}
+	required := map[string]string{EnvURL: o.URL, EnvUser: o.User, EnvPassword: o.Password}
+	if o.TokenID != "" || o.TokenSecret != "" {
+		required = map[string]string{EnvURL: o.URL, EnvTokenID: o.TokenID, EnvTokenSecret: o.TokenSecret}
 	}
 	var missing []string
-	for name, v := range map[string]string{EnvURL: o.URL, EnvUser: o.User, EnvPassword: o.Password} {
+	for name, v := range required {
 		if v == "" {
 			missing = append(missing, name)
 		}
@@ -91,8 +107,9 @@ func OptionsFromEnv() (Options, error) {
 
 // Client talks to one Proxmox VE cluster.
 type Client struct {
-	api  *proxmox.Client
-	base string
+	api      *proxmox.Client
+	base     string
+	authHint string // the env vars to check on 401
 }
 
 // quietLogger drops go-proxmox's log output: its debug level prints
@@ -105,8 +122,8 @@ func (quietLogger) Infof(string, ...interface{})  {}
 func (quietLogger) Warnf(string, ...interface{})  {}
 func (quietLogger) Errorf(string, ...interface{}) {}
 
-// New builds a client. It does not contact the server; the ticket login
-// happens on the first request.
+// New builds a client. It does not contact the server; with user/password
+// the ticket login happens on the first request.
 func New(o Options) (*Client, error) {
 	if o.URL == "" {
 		return nil, errors.New("no Proxmox API URL")
@@ -127,13 +144,19 @@ func New(o Options) (*Client, error) {
 		Timeout:   timeout,
 		Transport: &http.Transport{TLSClientConfig: tlsCfg, Proxy: http.ProxyFromEnvironment},
 	}
+	auth := proxmox.WithCredentials(&proxmox.Credentials{Username: o.User, Password: o.Password})
+	authHint := EnvUser + "/" + EnvPassword
+	if o.TokenID != "" {
+		auth = proxmox.WithAPIToken(o.TokenID, o.TokenSecret)
+		authHint = EnvTokenID + "/" + EnvTokenSecret + " and the token's permissions"
+	}
 	api := proxmox.NewClient(base,
 		proxmox.WithHTTPClient(hc),
-		proxmox.WithCredentials(&proxmox.Credentials{Username: o.User, Password: o.Password}),
+		auth,
 		proxmox.WithLogger(quietLogger{}),
 		proxmox.WithUserAgent("pvectl"),
 	)
-	return &Client{api: api, base: base}, nil
+	return &Client{api: api, base: base, authHint: authHint}, nil
 }
 
 // Sentinel errors callers map to exit codes.
@@ -165,7 +188,7 @@ func (c *Client) wrap(method, path string, err error) error {
 			return fmt.Errorf("%s %s: %s: %w", method, path, msg, ErrNotFound)
 		}
 		if path == "/access/ticket" || apiErr.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("%s %s: %d %s (check %s/%s)", method, path, apiErr.StatusCode, msg, EnvUser, EnvPassword)
+			return fmt.Errorf("%s %s: %d %s (check %s)", method, path, apiErr.StatusCode, msg, c.authHint)
 		}
 		return fmt.Errorf("%s %s: %d %s", method, path, apiErr.StatusCode, msg)
 	}

@@ -250,8 +250,22 @@ func TestMissingEnvIsUsage(t *testing.T) {
 	t.Setenv("PVE_API_URL", "")
 	t.Setenv("PVE_API_USER", "")
 	t.Setenv("PVE_API_PASSWORD", "")
+	t.Setenv("PVE_API_TOKEN_ID", "")
+	t.Setenv("PVE_API_TOKEN_SECRET", "")
 	out, _, code := run(t, "vms", "-o", "json")
 	if code != ExitUsage || !strings.Contains(decode(t, out)["error"].(string), "sops exec-env") {
+		t.Fatalf("exit %d %s", code, out)
+	}
+}
+
+func TestAPITokenFromEnv(t *testing.T) {
+	fakeLab(t)
+	t.Setenv("PVE_API_USER", "")
+	t.Setenv("PVE_API_PASSWORD", "")
+	t.Setenv("PVE_API_TOKEN_ID", pvetest.TokenID)
+	t.Setenv("PVE_API_TOKEN_SECRET", pvetest.TokenSecret)
+	out, _, code := run(t, "vms", "--templates", "-o", "json")
+	if code != 0 || !strings.HasPrefix(strings.TrimSpace(out), "[") {
 		t.Fatalf("exit %d %s", code, out)
 	}
 }

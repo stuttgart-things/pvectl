@@ -1,5 +1,6 @@
-// Package pvetest is a fake Proxmox VE API for tests: ticket login plus
-// canned responses per "METHOD /path" (path without /api2/json and query).
+// Package pvetest is a fake Proxmox VE API for tests: ticket login or API
+// token, plus canned responses per "METHOD /path" (path without /api2/json
+// and query).
 package pvetest
 
 import (
@@ -14,6 +15,12 @@ import (
 
 // Ticket is the fake session ticket.
 const Ticket = "PVE:test@pve:FAKE"
+
+// TokenID and TokenSecret are the API token the fake accepts.
+const (
+	TokenID     = "test@pve!ci"
+	TokenSecret = "00000000-0000-0000-0000-000000000000"
+)
 
 // Call is a recorded request.
 type Call struct {
@@ -92,14 +99,22 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		writeData(w, map[string]any{"ticket": Ticket, "CSRFPreventionToken": "csrf", "username": body["username"]})
 		return
 	}
-	cookie, err := r.Cookie("PVEAuthCookie")
-	if err != nil || cookie.Value != Ticket {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-	if r.Method != http.MethodGet && r.Header.Get("CSRFPreventionToken") != "csrf" {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+	if auth := r.Header.Get("Authorization"); auth != "" {
+		// API token: no ticket, no CSRF token
+		if auth != "PVEAPIToken="+TokenID+"="+TokenSecret {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+	} else {
+		cookie, err := r.Cookie("PVEAuthCookie")
+		if err != nil || cookie.Value != Ticket {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet && r.Header.Get("CSRFPreventionToken") != "csrf" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 	}
 	call := Call{Method: r.Method, Path: path, Query: r.URL.RawQuery, Body: body}
 	s.mu.Lock()

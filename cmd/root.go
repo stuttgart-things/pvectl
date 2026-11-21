@@ -35,10 +35,12 @@ Credentials come from the environment and are never printed:
 
   sops exec-env ~/.secrets.d/labul/proxmox.env 'pvectl vms ubuntu26'
 
-  PVE_API_URL       https://<host>:8006/api2/json
-  PVE_API_USER      user@realm
-  PVE_API_PASSWORD  password
-  PVE_CA_CERT       optional: the cluster CA (/etc/pve/pve-root-ca.pem), path or PEM
+  PVE_API_URL           https://<host>:8006/api2/json
+  PVE_API_USER          user@realm
+  PVE_API_PASSWORD      password
+  PVE_API_TOKEN_ID      or an API token (CI, Dagger): user@realm!tokenname
+  PVE_API_TOKEN_SECRET  its secret; set, the token is used instead
+  PVE_CA_CERT           optional: the cluster CA (/etc/pve/pve-root-ca.pem), path or PEM
 
 TLS is always verified: by the system store or PVE_CA_CERT, else by a
 certificate pinned once with 'pvectl tls trust' (like SSH known_hosts; a
