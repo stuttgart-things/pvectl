@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/stuttgart-things/pvectl/compare/v0.4.0...v0.5.0) (2026-11-21)
+
+
+### Features
+
+* **pve:** API token login (PVE_API_TOKEN_ID/PVE_API_TOKEN_SECRET) ([#18](https://github.com/stuttgart-things/pvectl/issues/18)) ([a0d5a78](https://github.com/stuttgart-things/pvectl/commit/a0d5a7824c7077851f0f10dcceca8638a5bd05f3))
+
 # [0.4.0](https://github.com/stuttgart-things/pvectl/compare/v0.3.0...v0.4.0) (2026-11-19)
 
 
