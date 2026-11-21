@@ -40,8 +40,15 @@ From the environment only, never printed, never stored:
 | `PVE_API_URL` | `https://<host>:8006/api2/json` |
 | `PVE_API_USER` | `user@realm` (ticket login, user/password) |
 | `PVE_API_PASSWORD` | |
+| `PVE_API_TOKEN_ID` | instead of user/password: an API token `user@realm!tokenname` (CI, Dagger). Set, it is used instead of user/password |
+| `PVE_API_TOKEN_SECRET` | the token secret |
 | `PVE_CA_CERT` | optional: the cluster CA (`/etc/pve/pve-root-ca.pem` on any node), a file path or the PEM itself |
 | `PVE_KNOWN_HOSTS` | optional: the file of pinned certificates (default `~/.config/pvectl/known_hosts`) |
+
+An API token with privilege separation has only the permissions granted to
+the token itself (Datacenter > Permissions > API Token Permissions). Give
+it what the commands you run need, e.g. the template pool and storages for
+`template promote`. A 401 names the token variables to check.
 
 ```bash
 sops exec-env ~/.secrets.d/labul/proxmox.env 'pvectl vms ubuntu26'
