@@ -1,6 +1,6 @@
 module github.com/stuttgart-things/pvectl
 
-go 1.27.1
+go 1.26.7
 
 require (
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
