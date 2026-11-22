@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/stuttgart-things/pvectl/compare/v0.5.0...v0.6.0) (2026-11-22)
+
+
+### Features
+
+* **pve:** FindByName, Rename, Delete, Networks, ClusterStorages, PinnedKnownHosts ([#19](https://github.com/stuttgart-things/pvectl/issues/19)) ([1be691f](https://github.com/stuttgart-things/pvectl/commit/1be691f034fac00432a021e7cefaae5a725954e3))
+
 # [0.5.0](https://github.com/stuttgart-things/pvectl/compare/v0.4.0...v0.5.0) (2026-11-21)
 
 
