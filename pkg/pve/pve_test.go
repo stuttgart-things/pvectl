@@ -86,6 +86,36 @@ func TestCheckConfig(t *testing.T) {
 	}
 }
 
+func TestCheckCPU(t *testing.T) {
+	cases := []struct {
+		cpu, ostype string
+		ok, warn    bool
+	}{
+		{"host", "l26", true, false},
+		{"x86-64-v3", "l26", true, false}, // Deb13 (996)
+		{"x86-64-v4,flags=+aes", "", true, false},
+		{"cputype=host", "", true, false},
+		{"x86-64-v2-AES", "l26", false, false}, // EL10 would not boot
+		{"x86-64-v2-AES", "", false, false},    // unset ostype counts as Linux
+		{"", "l26", false, false},
+		{"x86-64-v2-AES", "win11", false, true}, // Windows Server 2025 (999)
+		{"x86-64-v2-AES", "win10", false, true},
+		{"x86-64-v2-AES", "other", false, true}, // DDVE (213)
+		{"", "win11", false, true},
+	}
+	for _, c := range cases {
+		cfg := pve.Config{"cpu": c.cpu, "ostype": c.ostype, "agent": "1", "template": "1"}
+		got := pve.CheckConfig(cfg)[0]
+		if got.Name != "cpu" || got.OK != c.ok || got.Warn != c.warn {
+			t.Errorf("cpu %q ostype %q: ok=%v warn=%v (%s), want ok=%v warn=%v",
+				c.cpu, c.ostype, got.OK, got.Warn, got.Detail, c.ok, c.warn)
+		}
+		if pve.ChecksOK(pve.CheckConfig(cfg)) != (c.ok || c.warn) {
+			t.Errorf("cpu %q ostype %q: ChecksOK wrong", c.cpu, c.ostype)
+		}
+	}
+}
+
 func TestDisks(t *testing.T) {
 	ds := pve.Sanitize(templateConfig()).Disks()
 	if len(ds) != 2 || ds[0].Key != "ide2" || !ds[0].CloudInit || ds[1].Storage != "DD-sthings" {

@@ -32,11 +32,12 @@ type ConfigResult struct {
 var configCmd = &cobra.Command{
 	Use:     "config [vmid]",
 	GroupID: groupRead,
-	Short:   "Show a VM/template config and check cpu: host, guest agent and cloud-init drive",
+	Short:   "Show a VM/template config and check cpu (host or x86-64-v3+), guest agent and cloud-init drive",
 	Long: `Show the config of a VM or template (the node is looked up) and run the
 template sanity checks:
 
-  cpu               host (EL10 needs x86-64-v3; #4650)
+  cpu               host or x86-64-v3+ (EL10 needs x86-64-v3; #4650). For a
+                    non-Linux ostype (Windows, other) only a warning
   agent             enabled, or Proxmox never learns the guest IP
   cloud-init drive  present, or clones keep the template hostname
 

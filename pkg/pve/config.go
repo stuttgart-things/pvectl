@@ -120,6 +120,28 @@ func (cfg Config) Disks() []Disk {
 	return out
 }
 
+// x86-64-v3 and newer carry what EL10 needs.
+var cpuV3 = map[string]bool{"host": true, "x86-64-v3": true, "x86-64-v4": true}
+
+// checkCPU checks the cpu option. Linux guests (ostype l26/l24, or unset)
+// need host or x86-64-v3+; for other guests anything else is a warning.
+func checkCPU(cpu, ostype string) Check {
+	cpuType := strings.SplitN(cpu, ",", 2)[0]
+	cpuType = strings.TrimPrefix(cpuType, "cputype=")
+	if cpuV3[cpuType] {
+		return Check{Name: "cpu", OK: true, Detail: cpu}
+	}
+	d := cpu
+	if d == "" {
+		d = "unset (Proxmox default kvm64/x86-64-v2-AES)"
+	}
+	linux := ostype == "" || strings.HasPrefix(ostype, "l2")
+	if !linux {
+		return Check{Name: "cpu", Warn: true, Detail: d + " on ostype " + ostype + ": fine for it; Linux (EL10) templates need host or x86-64-v3+"}
+	}
+	return Check{Name: "cpu", Detail: d + ", want host or x86-64-v3+ (EL10 needs x86-64-v3)"}
+}
+
 // Check is the result of one sanity check of a config.
 type Check struct {
 	Name   string `json:"name"`
@@ -130,8 +152,11 @@ type Check struct {
 
 // CheckConfig runs the template sanity checks:
 //
-//   - cpu: host. EL10 needs x86-64-v3; the default kvm64 lacks it, and the
-//     Packer plugin does not always carry cpu_type through (#4650).
+//   - cpu: host, x86-64-v3 or x86-64-v4. EL10 needs x86-64-v3; the
+//     default kvm64/x86-64-v2-AES lacks it, and the Packer plugin does not
+//     always carry cpu_type through (#4650). A guest whose ostype is not
+//     Linux (Windows, other) only gets a warning: x86-64-v2-AES is fine
+//     for it and keeps live migration across CPU generations.
 //   - agent enabled, or Proxmox never learns the guest IP.
 //   - a cloud-init drive on a VM, or it keeps the template hostname/user.
 //     On a template a missing drive is expected and passes: the LabUL
@@ -140,17 +165,7 @@ type Check struct {
 func CheckConfig(cfg Config) []Check {
 	var checks []Check
 
-	cpu := cfg["cpu"]
-	cpuType := strings.SplitN(cpu, ",", 2)[0]
-	cpuType = strings.TrimPrefix(cpuType, "cputype=")
-	switch {
-	case cpu == "":
-		checks = append(checks, Check{Name: "cpu", Detail: "unset (Proxmox default kvm64/x86-64-v2-AES), want host"})
-	case cpuType == "host":
-		checks = append(checks, Check{Name: "cpu", OK: true, Detail: cpu})
-	default:
-		checks = append(checks, Check{Name: "cpu", Detail: cpu + ", want host"})
-	}
+	checks = append(checks, checkCPU(cfg["cpu"], cfg["ostype"]))
 
 	agent := cfg["agent"]
 	if agentEnabled(agent) {

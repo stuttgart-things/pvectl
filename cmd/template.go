@@ -47,7 +47,7 @@ var promoteCmd = &cobra.Command{
 	Short: "Check a template, migrate it to ul-pve11, copy it to FS9100 for Terraform, print the repins",
 	Long: `Promote a template after a Packer build (on ul-pve01):
 
-  1. checks      cpu: host, guest agent, cloud-init drive (exit 4 on failure;
+  1. checks      cpu (host or x86-64-v3+), guest agent, cloud-init drive (exit 4 on failure;
                  --skip-checks to override)
   2. migrate     (--to) the template to ul-pve11, so the proxmoxvm chart can
                  leave templateNode empty.
