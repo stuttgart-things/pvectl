@@ -1,3 +1,11 @@
+## [0.6.2](https://github.com/stuttgart-things/pvectl/compare/v0.6.1...v0.6.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **deps:** update module github.com/lucasb-eyer/go-colorful to v1.4.1 ([#14](https://github.com/stuttgart-things/pvectl/issues/14)) ([b4a24ac](https://github.com/stuttgart-things/pvectl/commit/b4a24acd29310f5e0b31e28261acd833d2fe126e))
+* **deps:** update module github.com/spf13/pflag to v1.1.0 ([#16](https://github.com/stuttgart-things/pvectl/issues/16)) ([f464c5f](https://github.com/stuttgart-things/pvectl/commit/f464c5fd4cc8eb06b9503a3f0f98a7b52390214b))
+
 ## [0.6.1](https://github.com/stuttgart-things/pvectl/compare/v0.6.0...v0.6.1) (2026-11-22)
 
 
