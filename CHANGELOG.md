@@ -1,3 +1,10 @@
+## [0.6.3](https://github.com/stuttgart-things/pvectl/compare/v0.6.2...v0.6.3) (2026-11-22)
+
+
+### Bug Fixes
+
+* **deps:** bubbles v0.21.1 and x/term v0.2.2 ([#21](https://github.com/stuttgart-things/pvectl/issues/21)) ([4c97564](https://github.com/stuttgart-things/pvectl/commit/4c975647038ded705cb51188ef2b60ee9b3088bd))
+
 ## [0.6.2](https://github.com/stuttgart-things/pvectl/compare/v0.6.1...v0.6.2) (2026-11-22)
 
 
