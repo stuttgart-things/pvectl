@@ -116,7 +116,7 @@ for both modes.
 | Command | | Writes? |
 |---|---|---|
 | `vms [filter]` | VMs (`--templates`, `--all`) by name substring or VMID; with a filter also guest IPv4 and the `qm*`/`ha*` tasks of the last 4 days (`--days`) | no |
-| `config [vmid]` | config without description, disks, checks: `cpu: host`, guest agent, cloud-init drive | no |
+| `config [vmid]` | config without description, disks, checks: cpu (`host` or `x86-64-v3`+), guest agent, cloud-init drive | no |
 | `tasks` | recent tasks (cluster, or `--node`/`--vmid`/`--type`/`--errors`/`--since`) | no |
 | `tasks --follow <upid>` | follow a task until it stops; exit 5 if it failed | no |
 | `ha [<node>] [vmid]` | HA resource and state, recent tasks, log of the last start/migrate | no |
@@ -136,7 +136,7 @@ nothing is written) and `--yes`. A description parameter shows as
 
 | Check | Why |
 |---|---|
-| `cpu` = `host` | EL10 needs x86-64-v3; the Packer plugin did not always carry `cpu_type` through (#4650) |
+| `cpu` = `host`, `x86-64-v3` or `x86-64-v4` | EL10 needs x86-64-v3; the Packer plugin did not always carry `cpu_type` through (#4650). A guest with a non-Linux `ostype` (Windows, DDVE: `win*`, `other`) only gets a **warning**: the Proxmox default `x86-64-v2-AES` is fine there and keeps live migration across CPU generations. An unset `ostype` counts as Linux |
 | `agent` enabled | without it Proxmox never learns the guest IP |
 | cloud-init drive | a VM without one keeps the template hostname. On a **template** a missing drive passes: none of the LabUL templates (211, 266, 280, 282) has one, because bpg (`initialization`) and Telmate add one to every clone |
 
