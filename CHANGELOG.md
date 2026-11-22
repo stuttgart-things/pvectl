@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/stuttgart-things/pvectl/compare/v0.6.0...v0.6.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **pve:** cpu check accepts x86-64-v3+, warns for non-Linux guests ([#20](https://github.com/stuttgart-things/pvectl/issues/20)) ([f79549c](https://github.com/stuttgart-things/pvectl/commit/f79549c0a310f50e1db336c75fda95e28c60c2c0))
+
 # [0.6.0](https://github.com/stuttgart-things/pvectl/compare/v0.5.0...v0.6.0) (2026-11-22)
 
 
