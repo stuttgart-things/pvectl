@@ -1,3 +1,10 @@
+## [0.6.4](https://github.com/stuttgart-things/pvectl/compare/v0.6.3...v0.6.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* **migrate:** wait until an HA-managed VM is on the target ([#23](https://github.com/stuttgart-things/pvectl/issues/23)) ([f81d9d9](https://github.com/stuttgart-things/pvectl/commit/f81d9d9fc3f0181c92f997f5ac4042bd51d32083))
+
 ## [0.6.3](https://github.com/stuttgart-things/pvectl/compare/v0.6.2...v0.6.3) (2026-11-22)
 
 
