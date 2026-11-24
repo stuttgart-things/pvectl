@@ -247,3 +247,43 @@ func TestCloneCallRedactsDescription(t *testing.T) {
 		t.Fatalf("%s", call)
 	}
 }
+
+func TestWaitHAMigration(t *testing.T) {
+	s := pvetest.New(t)
+	ha := "UPID:ul-pve02:000F157B:0080527B:6B056801:hamigrate:226:user@pve!pvectl:"
+	qm := "UPID:ul-pve02:000F1600:00805300:6B056830:qmigrate:226:root@pam:"
+	node := "ul-pve02"
+	listed := 0
+	s.Handle("GET /cluster/resources", func(pvetest.Call) (any, int, string) {
+		return []map[string]any{{"vmid": 226, "name": "infra-sthings-3", "node": node, "type": "qemu", "status": "running"}}, 200, ""
+	})
+	s.Handle("GET /nodes/ul-pve02/tasks", func(pvetest.Call) (any, int, string) {
+		listed++
+		if listed < 2 { // HA has not started the qmigrate yet
+			return []map[string]any{}, 200, ""
+		}
+		return []map[string]any{{"upid": qm, "node": "ul-pve02", "type": "qmigrate", "id": "226", "starttime": 0x6B056830}}, 200, ""
+	})
+	s.Data("GET /cluster/ha/status/current", []map[string]any{{"id": "service:vm:226", "type": "service", "sid": "vm:226", "state": "migrate"}})
+	s.Handle("GET /nodes/ul-pve02/tasks/"+qm+"/status", func(pvetest.Call) (any, int, string) {
+		node = "ul-pve10"
+		return map[string]any{"status": "stopped", "exitstatus": "OK", "type": "qmigrate", "id": "226", "upid": qm}, 200, ""
+	})
+	s.Data("GET /nodes/ul-pve02/tasks/"+qm+"/log", []map[string]any{{"n": 1, "t": "migration finished successfully"}})
+
+	var lines []string
+	st, err := client(t, s).WaitHAMigration(context.Background(), ha, 226, "ul-pve10", pve.WaitOptions{Poll: 1, OnEvent: func(ev pve.TaskEvent) {
+		lines = append(lines, ev.Line)
+	}})
+	if err != nil || st.UPID != qm || len(lines) != 1 {
+		t.Fatalf("st=%+v err=%v lines=%v", st, err, lines)
+	}
+
+	// HA gave up: fail fast instead of waiting for the timeout
+	node = "ul-pve02"
+	s.Data("GET /nodes/ul-pve02/tasks", []map[string]any{})
+	s.Data("GET /cluster/ha/status/current", []map[string]any{{"id": "service:vm:226", "type": "service", "sid": "vm:226", "state": "error"}})
+	if _, err := client(t, s).WaitHAMigration(context.Background(), ha, 226, "ul-pve10", pve.WaitOptions{Poll: 1}); !errors.Is(err, pve.ErrTaskFailed) {
+		t.Fatalf("want ErrTaskFailed, got %v", err)
+	}
+}

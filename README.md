@@ -123,7 +123,7 @@ for both modes.
 | `repin` | the stuttgart-things values for a new template/copy VMID | no |
 | `tls` | the API certificate (subject, names, expiry, SHA-256) and its trust state; no login | no |
 | `tls trust` | pin the API certificate in the known-hosts file; `--fingerprint` (checked against the server) or `--yes` | local file only |
-| `migrate [<node> <vmid> <target>]` | online if running, with local disks if any, waits for the task; `--targetstorage` | yes |
+| `migrate [<node> <vmid> <target>]` | online if running, with local disks if any, waits for the task (under HA: until the guest is on the target); `--targetstorage` | yes |
 | `template promote [vmid]` | checks → migrate `--to` → FS9100 copy `--fs9100-copy` → repins | yes |
 | `start [<node>] [vmid]` | start a stopped VM, wait for its IP; refuses on HA `error` | yes |
 | `ha-recover [<node>] [vmid]` | HA `error` → `disabled` → `started`, wait for the IP (#4240) | yes |

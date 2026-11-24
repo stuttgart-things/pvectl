@@ -3,6 +3,7 @@ package pve
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // HAStatus is an entry of /cluster/ha/status/current (quorum, master, lrm
@@ -72,4 +73,53 @@ func HASetStateCall(sid, state string) APICall {
 // HASetState sets the requested state of an HA resource.
 func (c *Client) HASetState(ctx context.Context, sid, state string) error {
 	return c.put(ctx, "/cluster/ha/resources/"+sid, map[string]any{"state": state}, nil)
+}
+
+// WaitHAMigration follows an HA migration once its request task (hamigrate,
+// upid) has ended. That task only queues the move: the HA manager starts the
+// real qmigrate on the source node seconds to minutes later. WaitHAMigration
+// waits for that qmigrate (streaming its log through opts.OnEvent) and then
+// until the guest is listed on target. It fails fast when the qmigrate fails
+// or the HA service drops into state "error"; otherwise it waits until ctx ends.
+func (c *Client) WaitHAMigration(ctx context.Context, upid string, vmid int, target string, opts WaitOptions) (TaskStatus, error) {
+	u, err := ParseUPID(upid)
+	if err != nil {
+		return TaskStatus{}, err
+	}
+	poll := opts.Poll
+	if poll == 0 {
+		poll = 3 * time.Second
+	}
+	since := time.Unix(u.StartTime, 0)
+	sid := HASID(vmid)
+	var st TaskStatus
+	followed := false
+	for {
+		if r, err := c.FindVM(ctx, vmid); err == nil && r.Node == target {
+			return st, nil
+		}
+		if !followed {
+			ts, err := c.Tasks(ctx, TaskFilter{Node: u.Node, VMID: vmid, Type: "qmigrate", Since: since})
+			if err != nil {
+				return st, err
+			}
+			if len(ts) > 0 {
+				followed = true
+				if st, err = c.WaitTask(ctx, ts[len(ts)-1].UPID, opts); err != nil {
+					return st, err
+				}
+				continue
+			}
+		}
+		if hs, ok, err := c.HAState(ctx, sid); err == nil && ok && hs.State == "error" {
+			return st, fmt.Errorf("HA service %s is in state error (%s); see: pvectl ha %s %d: %w",
+				sid, hs.Status, u.Node, vmid, ErrTaskFailed)
+		}
+		select {
+		case <-ctx.Done():
+			return st, fmt.Errorf("stopped waiting for HA to move %d to %s (the migration may still happen; check: pvectl ha %s %d): %w",
+				vmid, target, u.Node, vmid, ctx.Err())
+		case <-time.After(poll):
+		}
+	}
 }

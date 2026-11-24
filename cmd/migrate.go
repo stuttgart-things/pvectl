@@ -51,6 +51,10 @@ Arguments as in pve.py (<node> <vmid> <target>), or as flags (--vmid, --target;
 missing: the guest from a filterable list, the target node, and a target
 storage if the target lacks the guest's storage.
 
+A guest under HA gets a hamigrate request task that only queues the move;
+migrate then waits for the qmigrate HA starts and for the guest to show up on
+the target (exit 5 if that qmigrate fails or HA drops into state error).
+
 A guest already on the target is reported, not migrated (exit 0).`,
 	Example: `  # human: asks for guest, target (and storage), shows a summary, confirms
   pvectl migrate
@@ -179,6 +183,24 @@ func runMigrate(cmd *cobra.Command, args []string) error {
 			return silentErr(exitCode(werr), werr)
 		}
 		return werr
+	}
+	if u, _ := pve.ParseUPID(upid); u.Type == "hamigrate" {
+		// HA only queued the move; wait for the qmigrate it starts
+		logf("HA queued the move; waiting for %d to arrive on %s", r.VMID, f.target)
+		hst, herr := c.WaitHAMigration(wctx, upid, r.VMID, f.target, pve.WaitOptions{OnEvent: func(ev pve.TaskEvent) { streamLine(ev.Line) }})
+		endStream()
+		if hst.UPID != "" {
+			res.Task = &hst
+		}
+		if herr != nil {
+			res.State = "failed"
+			res.Reason = herr.Error()
+			if jsonOut() {
+				_ = printJSON(res)
+				return silentErr(exitCode(herr), herr)
+			}
+			return herr
+		}
 	}
 	res.State = "done"
 	if now, err := c.FindVM(ctx, r.VMID); err == nil {

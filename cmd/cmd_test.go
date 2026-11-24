@@ -368,3 +368,33 @@ func TestTLSTrust(t *testing.T) {
 		t.Fatalf("after trust:\n%s", out)
 	}
 }
+
+func TestMigrateHAWaitsForArrival(t *testing.T) {
+	s := fakeLab(t)
+	ha := "UPID:ul-pve10:00000001:00000001:6B056801:hamigrate:227:test@pve:"
+	qm := "UPID:ul-pve10:00000002:00000002:6B056830:qmigrate:227:root@pam:"
+	node := "ul-pve10"
+	s.Handle("GET /cluster/resources", func(pvetest.Call) (any, int, string) {
+		return []map[string]any{{"vmid": 227, "name": "platform-sthings-1", "node": node, "type": "qemu", "status": "running"}}, 200, ""
+	})
+	s.Data("GET /nodes/ul-pve10/qemu/227/migrate", map[string]any{"running": 1, "local_disks": []map[string]any{}})
+	s.Data("POST /nodes/ul-pve10/qemu/227/migrate", ha)
+	s.Data("GET /nodes/ul-pve10/tasks/"+ha+"/status", map[string]any{"status": "stopped", "exitstatus": "OK", "type": "hamigrate", "id": "227"})
+	s.Data("GET /nodes/ul-pve10/tasks/"+ha+"/log", []map[string]any{{"n": 1, "t": "Requesting HA migration for VM 227 to node ul-pve11"}})
+	s.Data("GET /nodes/ul-pve10/tasks", []map[string]any{{"upid": qm, "node": "ul-pve10", "type": "qmigrate", "id": "227", "starttime": 0x6B056830}})
+	s.Data("GET /cluster/ha/status/current", []map[string]any{})
+	s.Handle("GET /nodes/ul-pve10/tasks/"+qm+"/status", func(pvetest.Call) (any, int, string) {
+		node = "ul-pve11"
+		return map[string]any{"status": "stopped", "exitstatus": "OK", "type": "qmigrate", "id": "227", "upid": qm}, 200, ""
+	})
+	s.Data("GET /nodes/ul-pve10/tasks/"+qm+"/log", []map[string]any{{"n": 1, "t": "migration finished successfully"}})
+
+	out, errOut, code := run(t, "migrate", "ul-pve10", "227", "ul-pve11", "--yes", "-o", "json")
+	if code != ExitOK {
+		t.Fatalf("exit %d %s %s", code, out, errOut)
+	}
+	m := decode(t, out)
+	if m["state"] != "done" || m["after"].(map[string]any)["node"] != "ul-pve11" || m["task"].(map[string]any)["type"] != "qmigrate" {
+		t.Fatalf("%v", m)
+	}
+}
